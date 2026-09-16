@@ -1,0 +1,33 @@
+ISOTOPE BUILD 6.0 — MEGA OVERHAUL
+
+Target: isotope-fixed only. The OLD-isotope archive was used as source/reference; it was not modified.
+
+This update restores the legacy periodic-vault hue treatment, preserves per-element equipped abilities in Element Mastery, auto-equips newly purchased elements, and keeps the live H/Stats widget hidden outside active rounds.
+
+Co-op/local: file:// rooms use BroadcastChannel room codes first so multiple local tabs can join the same room without GitHub/PeerJS. Hosted builds can still use PeerJS when available.
+
+Content expansion: added 20 enemy archetypes, 12 bosses, 18 relics, 240 cards, 8 pickups, 30 deep augment hooks, expanded attack/effect protocols, 12 boss music variants + 6 combat variants, background particles, live update/changelog panel, and a larger archive/codex.
+
+Element Mastery: on open it follows SAVE.sel; it reads the selected element's saved signature slot and renders that ability's exact name/description and a slot-specific upgrade track. Clicking another mastery chip switches the mastery view without changing the equipped element.
+
+Periodic Vault: colors are derived from each element's actual hue; locked entries are darkened; affordable entries receive a buyable highlight; owned/equipped entries glow.
+
+ABILITY SEMANTIC OVERHAUL V8 (2026-09-15)
+- Added ability-semantic-overhaul.js as the final ability layer.
+- Every usable element (118 x 3) and compound (447 x 3) receives a dedicated executable ability choice.
+- Element slot 1 / first ability is now description-driven; Bismuth Crystal Growth creates expanding crystal structures instead of calling a generic projectile ability.
+- Silicon slot 0 remains hard-routed to the existing Circuit/node mechanic.
+- Compound abilities no longer inherit the old shared projectile/explosion fallback. Their name/archetype/description determine a dedicated mechanic, with deterministic per-ability motion/timing/status variation.
+- Added a separate semantic projectile/object simulation and rendering layer so these moves do not silently become the game's generic bullets.
+- Runtime descriptions receive unique per-ability semantic signatures to prevent identical move descriptions from being reused.
+
+
+BUILD 6.1 / COMBAT + LOCAL CO-OP PATCH
+- Integrated combat FX into the authoritative game closure so enemy death effects, radial explosion rings, and timer visuals actually render in the live game loop.
+- Delayed explosives now remain armed until their timer expires; enemy contact no longer forces a scheduled timer mine to detonate unless the ability explicitly marks itself proximity-triggered.
+- Fuse visuals ramp from slow pulses to rapid flashing as detonation approaches.
+- Added live Rust (heavy defense reduction + slow), Shock, Brittle, and Drenched status support to the combat pipeline, alongside existing Burn/Freeze/Corrosion/Poison.
+- Bismuth Crystal Growth now creates persistent growing crystal hazards that repeatedly damage and freeze enemies while they remain inside the crystal growth.
+- Added a top-level File/Local Stream button that opens a second file:// tab without an iframe; room-code co-op continues through BroadcastChannel.
+- Network packets now carry canonical compound identity, name, and formula so compounds remain defined across local/host/client matches.
+- canonicalId now resolves compounds added by later data passes instead of relying only on the early alias cache.
