@@ -5962,4 +5962,603 @@ console.log('ISO_UPDATE2_GAME active.');
    top of game.js. Keeping every later patch inside this closure is what lets
    them see/replace useActive, RUN, ST, A, SFX, banner, etc. See the note
    above ISO_FINAL_ABILITY_DISPATCH_FIX_V1 for why this matters. */
+/* ISO_REACTOR_V20_BEFriended_TEAM_OVERHAUL */
+(function(){
+  if(window.__ISO_REACTOR_V20_BEFriENDED_TEAM_OVERHAUL__)return;
+  window.__ISO_REACTOR_V20_BEFriENDED_TEAM_OVERHAUL__=true;
+
+  /* ------------------------------------------------------------------
+     Permanent team allies
+     ------------------------------------------------------------------ */
+  function isFriend(e){ return !!(e && e.befriended && e.team==='player'); }
+  function liveEnemies(){ return (RUN && RUN.enemies || []).filter(function(e){return e && !e.dead;}); }
+  function liveFriends(){ return (RUN && RUN.allies || []).filter(function(a){return isFriend(a) && a.hp>0;}); }
+  function ownerPlayer(id){
+    if(!RUN) return null;
+    return RUN.players.find(function(p){return p.id===id;}) || RUN.players[0] || null;
+  }
+  function allyVisualBurst(a){
+    try{
+      burst(a.x,a.y,140);
+      ringFx(a.x,a.y,140,95);
+      RUN.parts.push({x:a.x,y:a.y,vx:0,vy:0,t:.25,life:.25,r:8,hue:145});
+      RUN.texts.push({x:a.x,y:a.y-24,t:.8,life:.8,s:'ALLY DOWN',big:false,col:'#7ef0a6'});
+    }catch(err){}
+  }
+  function removeFriendFromEnemyList(e){
+    if(!RUN || !e) return;
+    e.dead=true;
+    e._befriended=true;
+    e._removedFromEnemyTeam=true;
+  }
+  function convertToFriend(e, ownerId){
+    if(!RUN || !e || e.dead || e.boss || e.befriended) return null;
+    RUN.allies=RUN.allies||[];
+    /* A hard ceiling prevents a charm build from flooding the browser with
+       hundreds of permanent AI actors, while still allowing a real squad. */
+    if(RUN.allies.filter(isFriend).length>=32) return null;
+
+    var owner=ownerPlayer(ownerId);
+    var a={
+      eid:e.eid,
+      type:e.type,
+      name:e.name || (ETYPES[e.type]&&ETYPES[e.type].name) || e.type || 'Ally',
+      x:e.x,y:e.y,r:e.r,
+      hp:Math.max(1,e.hp>0?e.hp:e.maxhp*.7),
+      maxhp:Math.max(1,e.maxhp||e.hp||20),
+      spd:e.spd||100,
+      dmg:e.dmg||10,
+      hue:145,
+      shape:e.shape||'dot',
+      ownerId:owner?owner.id:(ownerId==null?0:ownerId),
+      befriendSource:'nicotine',
+      befriended:true,
+      team:'player',
+      permanent:true,
+      incomingMul:.5,
+      touch:0,
+      shootT:Math.random()*.8+.2,
+      specialT:Math.random()*1.5+.5,
+      healT:1,
+      chargeT:0,
+      charge:0,
+      orb:Math.random()*TAU,
+      targetEid:0,
+      pickupT:0,
+      hurtT:0,
+      decayT:Infinity,
+      decay:Infinity,
+      // Preserve the enemy's own special pattern rather than converting it
+      // into a generic friendly turret.
+      special:e.special||null,
+      pat:e.pat||null,
+      fast:e.fast||false,
+      canCharge:e.canCharge||false,
+      seed:e.seed||0,
+      elite:!!e.elite,
+      sourceEnemy:e.type,
+      aiRole: allyRole(e)
+    };
+    RUN.allies.push(a);
+    removeFriendFromEnemyList(e);
+    e._nicotineFriend=false;
+    e._nicotineOwner=null;
+    e._nicotineFriendT=0;
+    ringFx(a.x,a.y,155,105);
+    ISO_SFX.charm();
+    if(owner) RUN.texts.push({x:a.x,y:a.y-28,t:1.2,life:1.2,s:'ALLY JOINED',big:true,col:'#7ef0a6'});
+    return a;
+  }
+  function allyRole(e){
+    var t=e.type||'';
+    if(['spitter','sniper','juggler','orbiter','drone','spark','voltconductor','mirror','glasslancer','emberdrone','echohound','ionserpent','stormbeacon'].indexOf(t)>=0) return 'ranged';
+    if(['healer','pylon','shielder','anchor','frostbinder','voidsentry'].indexOf(t)>=0) return 'support';
+    if(['bomber','charger','plasmacrusher','corroswirl','flareling'].indexOf(t)>=0) return 'breaker';
+    if(['seeder','splitter','crystalwarden'].indexOf(t)>=0) return 'summoner';
+    return 'melee';
+  }
+
+  /* Replace the older timed/decaying ally tick with a compatibility wrapper.
+     Existing summoned allies still work; permanent befriended allies are left
+     exclusively to the V20 team AI below. */
+  var __legacyTickAlliesV20=typeof tickAllies==='function'?tickAllies:null;
+  if(__legacyTickAlliesV20){
+    tickAllies=function(dt){
+      if(!RUN || !RUN.allies || !RUN.allies.length) return;
+      var all=RUN.allies;
+      var normal=all.filter(function(a){return !isFriend(a);});
+      if(normal.length){
+        RUN.allies=normal;
+        try{__legacyTickAlliesV20(dt);}finally{
+          var after=RUN.allies||[];
+          RUN.allies=after.concat(all.filter(isFriend));
+        }
+      }
+    };
+  }
+
+  /* ------------------------------------------------------------------
+     Nicotine M1 + ability conversion
+     ------------------------------------------------------------------ */
+  var __fireV20=fire;
+  fire=function(p){
+    var before=RUN?RUN.bullets.length:0;
+    __fireV20(p);
+    if(!RUN||!p||!p.elem||!p.elem.mol) return;
+    if(String(p.elem.name||'').toLowerCase()!=='nicotine') return;
+    for(var i=before;i<RUN.bullets.length;i++){
+      var b=RUN.bullets[i];
+      b.nicotineFriend=true;
+      b.nicotineDebuff=true;
+      /* The base M1 is a charm/debuff round, not a normal damage bullet. */
+      b.dmg=0;
+      b.hue=145;
+      b.r=Math.max(4,b.r||4);
+      b.semanticType='nicotine-friend-round';
+    }
+  };
+
+  var __applyElemHitV20=applyElemHit;
+  applyElemHit=function(b,e){
+    if(b&&e&&!e.dead&&b.nicotineDebuff){
+      /* Exactly 25% weaker + 25% slower while the debuff lasts. Bosses cannot
+         be befriended, so they receive the debuff instead. */
+      e._nicotineDebuffT=Math.max(e._nicotineDebuffT||0,3.2);
+      e._nicotineDebuffMul=.75;
+      if(e._nicoBaseDmg==null) e._nicoBaseDmg=e.dmg||0;
+      e.dmg=e._nicoBaseDmg*.75;
+      e.slowT=Math.max(e.slowT||0,.28);
+      e.flash=.15;
+      RUN.parts.push({x:e.x,y:e.y,vx:rnd(-25,25),vy:rnd(-25,25),t:.18,life:.18,r:2,hue:145});
+      if(!e.boss){
+        convertToFriend(e,b.owner);
+      }
+      return;
+    }
+    if(b&&e&&!e.dead&&!e.boss&&(b.charm||b.befriendEnemy)){
+      convertToFriend(e,b.owner);
+      return;
+    }
+    return __applyElemHitV20(b,e);
+  };
+
+  /* Explicit nicotine abilities are all team-oriented: direct shot, single
+     calm, and a large-area cloud. */
+  window.ISO_NICOTINE_USE=function(p,slot,el){
+    if(!RUN||!p||p.downed)return;
+    var D=(ST&&ST.dmg)||14,S=(ST&&ST.ps)||380,H=el.hue||290,a=p.angle||0;
+    p.activeCd=ST.activeCd;SFX.active();
+    if(slot===0){
+      var b={x:p.x,y:p.y,vx:Math.cos(a)*S*1.65,vy:Math.sin(a)*S*1.65,dmg:0,r:7,pierce:0,life:1.9,owner:p.id,hit:[],nicotineFriend:true,nicotineDebuff:true,semanticType:'nicotine-receptor-dart',hue:145};
+      RUN.bullets.push(b); return;
+    }
+    if(slot===1){
+      var one=liveEnemies().filter(function(e){return !e.boss;}).sort(function(u,v){return d2(u.x,u.y,p.x,p.y)-d2(v.x,v.y,p.x,p.y);})[0];
+      if(one){
+        var ally=convertToFriend(one,p.id);
+        if(ally){ally.hurtT=0;ally.hp=Math.min(ally.maxhp,ally.hp+ally.maxhp*.1);ringFx(ally.x,ally.y,100,90);}
+      }
+      return;
+    }
+    var radius=Math.min(W,H)*.25;
+    var count=0;
+    liveEnemies().forEach(function(e){
+      if(e.boss||d2(p.x,p.y,e.x,e.y)>radius*radius)return;
+      var ally=convertToFriend(e,p.id);
+      if(ally){ally.slowedUntil=(RUN.t||0)+4;count++;}
+      else {
+        e._nicotineDebuffT=Math.max(e._nicotineDebuffT||0,4);
+        e._nicotineDebuffMul=.75;
+        if(e._nicoBaseDmg==null)e._nicoBaseDmg=e.dmg||0;
+        e.dmg=e._nicoBaseDmg*.75;
+        e.slowT=Math.max(e.slowT||0,.8);
+      }
+    });
+    ringFx(p.x,p.y,H,radius);
+    RUN.texts.push({x:p.x,y:p.y-30,t:.8,life:.8,s:count+' ALLIES',big:false,col:'#7ef0a6'});
+  };
+
+  /* Keep enemy attack strength at exactly 75% while the nicotine debuff is on. */
+  var __updEnemiesV20=updEnemies;
+  updEnemies=function(dt){
+    if(RUN&&RUN.enemies){
+      RUN.enemies.forEach(function(e){
+        if(!e||e.dead)return;
+        if(e._nicotineDebuffT>0){
+          e._nicotineDebuffT=Math.max(0,e._nicotineDebuffT-dt);
+          if(e._nicoBaseDmg==null)e._nicoBaseDmg=e.dmg||0;
+          e.dmg=e._nicoBaseDmg*.75;
+          e.slowT=Math.max(e.slowT,.18);
+        }else if(e._nicoBaseDmg!=null){
+          e.dmg=e._nicoBaseDmg;
+          e._nicotineDebuffMul=1;
+        }
+      });
+    }
+    __updEnemiesV20(dt);
+    if(RUN&&RUN.enemies){
+      RUN.enemies.forEach(function(e){
+        if(e&&e._nicotineDebuffT>0&&e._nicoBaseDmg!=null)e.dmg=e._nicoBaseDmg*.75;
+      });
+    }
+  };
+
+  /* Let enemy targeting choose a player OR a befriended teammate. This makes
+     hostile ranged/special attacks naturally threaten the allied creature too.
+     Befriended allies are never selected by each other as enemies. */
+  var __nearestPlayerV20=nearestPlayer;
+  nearestPlayer=function(x,y){
+    var best=null,bd=1e30;
+    if(RUN&&RUN.players){
+      RUN.players.forEach(function(p){
+        if(p.downed)return;var dd=d2(x,y,p.x,p.y);if(dd<bd){bd=dd;best=p;}
+      });
+    }
+    liveFriends().forEach(function(a){var dd=d2(x,y,a.x,a.y);if(dd<bd){bd=dd;best=a;}});
+    return best || __nearestPlayerV20(x,y);
+  };
+
+  /* ------------------------------------------------------------------
+     Ally projectiles and AI
+     ------------------------------------------------------------------ */
+  function allyShot(a,target,opts){
+    if(!RUN||!target||target.dead)return;
+    var speed=opts.speed||300,ang=Math.atan2(target.y-a.y,target.x-a.x)+(opts.angleOffset||0);
+    (RUN.allyBullets=RUN.allyBullets||[]).push({
+      x:a.x,y:a.y,vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed,
+      dmg:(opts.mult||.8)*a.dmg,r:opts.r||5,life:opts.life||2,
+      ownerId:a.ownerId,sourceEid:a.eid,
+      hue:opts.hue==null?145:opts.hue,
+      pierce:opts.pierce||0,status:opts.status||null,statusTime:opts.statusTime||1.5,
+      homing:!!opts.homing,explRadius:opts.explRadius||0,freeze:!!opts.freeze,
+      corrode:!!opts.corrode,rust:!!opts.rust,shock:!!opts.shock,mark:!!opts.mark,
+      crystal:!!opts.crystal,ember:!!opts.ember
+    });
+  }
+  function enemyTargetsForAlly(){ return liveEnemies(); }
+  function nearestEnemyForAlly(a,range){
+    var arr=enemyTargetsForAlly(),best=null,bd=(range||900)*(range||900);
+    for(var i=0;i<arr.length;i++){
+      var e=arr[i],dd=d2(a.x,a.y,e.x,e.y);if(dd<bd){bd=dd;best=e;}
+    }
+    return best;
+  }
+  function allyDamageEnemiesInRadius(a,r,mult,status){
+    liveEnemies().forEach(function(e){
+      if(d2(a.x,a.y,e.x,e.y)<=r*r){
+        dmgEnemy(e,a.dmg*(mult||1),{quiet:true});
+        if(status==='freeze')addFreeze(e,1.1);
+        if(status==='burn')addBurn(e,a.dmg*.25,2.5);
+        if(status==='corrode')addCorrode(e,4,.4);
+        if(status==='rust')addRust(e,3,.65);
+        if(status==='shock')addShock(e,1.2);
+      }
+    });
+  }
+  function allyCollectPickups(a){
+    if(!RUN||!RUN.pickups)return;
+    var best=null,bd=160*160;
+    RUN.pickups.forEach(function(k){
+      if(k.got || (k.t!=='xp'&&k.t!=='coin'))return;
+      var dd=d2(a.x,a.y,k.x,k.y);if(dd<bd){bd=dd;best=k;}
+    });
+    if(!best)return false;
+    var d=Math.sqrt(bd)||1;
+    if(d>20){a.x+=(best.x-a.x)/d*Math.max(130,a.spd*1.3)*(window.__isoV20Dt||0);a.y+=(best.y-a.y)/d*Math.max(130,a.spd*1.3)*(window.__isoV20Dt||0);return true;}
+    if(best.got)return true;
+    best.got=true;
+    if(best.t==='xp'){
+      gainXP(best.v||1);
+      SFX.xp();
+      ringFx(best.x,best.y,145,65);
+      RUN.texts.push({x:a.x,y:a.y-18,t:.55,life:.55,s:'+'+(best.v||1)+' XP',big:false,col:'#7ef0a6'});
+    }else if(best.t==='coin'){
+      var c=Math.max(1,Math.floor((best.v||1)*.5));RUN.coins+=c;SAVE.addCoins(c);SFX.coin();
+      RUN.texts.push({x:a.x,y:a.y-18,t:.55,life:.55,s:'+◈'+c,big:false,col:'#ffd166'});
+    }
+    return true;
+  }
+  function tickAllySpecial(a,dt,target){
+    a.shootT=(a.shootT||0)-dt;
+    a.specialT=(a.specialT||0)-dt;
+    a.healT=(a.healT||1)-dt;
+    a.chargeT=(a.chargeT||0)-dt;
+    var t=target;
+    var type=a.type||'';
+
+    if(type==='healer'){
+      if(a.healT<=0){
+        a.healT=1.8;
+        RUN.players.forEach(function(p){if(!p.downed&&d2(a.x,a.y,p.x,p.y)<180*180)p.hp=Math.min(ST.hp,p.hp+ST.hp*.035);});
+        liveFriends().forEach(function(f){if(f!==a&&d2(a.x,a.y,f.x,f.y)<150*150)f.hp=Math.min(f.maxhp,f.hp+f.maxhp*.07);});
+        ringFx(a.x,a.y,145,65);return;
+      }
+      return;
+    }
+    if(type==='shielder'){
+      if(a.specialT<=0){a.specialT=3.5;RUN.players.forEach(function(p){if(!p.downed&&d2(a.x,a.y,p.x,p.y)<170*170)p.sh=Math.min(ST.shieldMax,p.sh+10);});liveFriends().forEach(function(f){if(f!==a&&d2(a.x,a.y,f.x,f.y)<140*140)f.hp=Math.min(f.maxhp,f.hp+1);});ringFx(a.x,a.y,160,70);}
+      return;
+    }
+    if(type==='anchor'){
+      liveEnemies().forEach(function(e){if(d2(a.x,a.y,e.x,e.y)<180*180){e.slowT=Math.max(e.slowT,.35);}});
+      return;
+    }
+    if(type==='frostbinder'){
+      if(a.specialT<=0){a.specialT=2.4;allyDamageEnemiesInRadius(a,150,.8,'freeze');ringFx(a.x,a.y,150,85);}return;
+    }
+    if(type==='voidsentry'){
+      if(a.specialT<=0){a.specialT=3.5;RUN.ebullets=RUN.ebullets.filter(function(b){return d2(b.x,b.y,a.x,a.y)>180*180;});ringFx(a.x,a.y,180,75);}return;
+    }
+    if(type==='pylon'){
+      if(a.specialT<=0){a.specialT=2.6;RUN.players.forEach(function(p){if(!p.downed&&d2(a.x,a.y,p.x,p.y)<180*180){p.puRate=Math.max(p.puRate||1,1.12);p.puTimer=Math.max(p.puTimer||0,2.8);}});ringFx(a.x,a.y,135,55);}return;
+    }
+    if(!t)return;
+
+    var d=Math.sqrt(d2(a.x,a.y,t.x,t.y))||1;
+    if(type==='spitter'&&a.shootT<=0){a.shootT=1.55;allyShot(a,t,{mult:.7,status:'corrode',speed:255,hue:120});return;}
+    if(type==='sniper'&&a.shootT<=0){a.shootT=3.1;allyShot(a,t,{mult:1.7,speed:470,r:7,pierce:2,hue:200,mark:true});return;}
+    if(type==='juggler'&&a.shootT<=0){a.shootT=2.25;for(var j=-1;j<=1;j++)allyShot(a,t,{mult:.56,speed:300,angleOffset:j*.16,hue:75,pierce:1});return;}
+    if(type==='orbiter'){
+      a.orb+=dt*1.8;var tx=t.x+Math.cos(a.orb)*150,ty=t.y+Math.sin(a.orb)*150,dd=Math.hypot(tx-a.x,ty-a.y)||1;
+      a.x+=(tx-a.x)/dd*a.spd*dt;a.y+=(ty-a.y)/dd*a.spd*dt;
+      if(a.shootT<=0){a.shootT=1.4;allyShot(a,t,{mult:.62,speed:260,hue:300,homing:true});}
+      return;
+    }
+    if(type==='drone'&&a.shootT<=0){a.shootT=1.15;allyShot(a,t,{mult:.72,speed:340,hue:205,homing:true});return;}
+    if(type==='spark'&&a.shootT<=0){a.shootT=.8;allyShot(a,t,{mult:.48,speed:460,r:3,hue:52,shock:true});return;}
+    if(type==='voltconductor'&&a.shootT<=0){a.shootT=2.2;for(var q=-2;q<=2;q++)allyShot(a,t,{mult:.45,speed:300,angleOffset:q*.14,hue:55,shock:true});return;}
+    if(type==='mirror'&&a.shootT<=0){a.shootT=2.7;allyShot(a,t,{mult:1.05,speed:320,hue:190,pierce:2});allyShot(a,t,{mult:.62,speed:250,angleOffset:.28,hue:215});allyShot(a,t,{mult:.62,speed:250,angleOffset:-.28,hue:215});return;}
+    if(type==='glasslancer'&&a.shootT<=0){a.shootT=2.5;a.charge=.45;a.chargeTarget=t.eid;return;}
+    if(type==='emberdrone'&&a.shootT<=0){a.shootT=2.8;allyShot(a,t,{mult:1.05,speed:210,hue:18,ember:true,explRadius:50});return;}
+    if(type==='echohound'&&a.shootT<=0){a.shootT=2.4;allyShot(a,t,{mult:.7,speed:280,hue:320});a.echoPendingT=.35;a.echoTargetEid=t.eid;return;}
+    if(type==='ionserpent'&&a.shootT<=0){a.shootT=2.0;for(var s=-2;s<=2;s++)allyShot(a,t,{mult:.43,speed:280,angleOffset:s*.2,hue:80,shock:true});return;}
+    if(type==='stormbeacon'&&a.shootT<=0){a.shootT=3.2;t.mark=Math.max(t.mark||0,3);dmgEnemy(t,a.dmg*1.25,{quiet:true});ringFx(t.x,t.y,90,50);return;}
+    if(type==='charger'&&a.chargeT<=0){a.chargeT=4;a.charge=.55;a.chargeTarget=t.eid;return;}
+    if(type==='bomber'&&d<a.r+t.r+18){allyDamageEnemiesInRadius(a,95,1.25,'burn');a.hp=0;return;}
+    if(type==='plasmacrusher'&&d<a.r+t.r+22&&a.specialT<=0){a.specialT=2.6;allyDamageEnemiesInRadius(a,115,1.3,'shock');return;}
+    if(type==='corroswirl'&&a.specialT<=0){a.specialT=1.2;allyDamageEnemiesInRadius(a,120,.78,'corrode');return;}
+    if(type==='flareling'&&d<a.r+t.r+15){allyDamageEnemiesInRadius(a,75,1.15,'burn');a.hp=0;return;}
+    if(a.aiRole==='summoner'&&a.specialT<=0){a.specialT=5;allyShot(a,t,{mult:.8,speed:230,hue:a.hue});return;}
+
+    if(d<=a.r+t.r+10&&a.shootT<=0){a.shootT=.72;dmgEnemy(t,a.dmg*.72,{quiet:true});ringFx(t.x,t.y,45,a.hue||145);}
+    else if(d>a.r+t.r+8){a.x+=(t.x-a.x)/d*a.spd*dt;a.y+=(t.y-a.y)/d*a.spd*dt;}
+  }
+
+  function tickAllyCharge(a,dt){
+    if(!a.charge||!a.chargeTarget)return false;
+    var t=RUN.enemies.find(function(e){return !e.dead&&e.eid===a.chargeTarget;});
+    if(!t){a.charge=0;a.chargeTarget=0;return false;}
+    if(a.charge>0){
+      a.charge=Math.max(0,a.charge-dt);
+      var d=Math.hypot(t.x-a.x,t.y-a.y)||1;
+      a.x+=(t.x-a.x)/d*(a.spd*4.2)*dt;
+      a.y+=(t.y-a.y)/d*(a.spd*4.2)*dt;
+      if(d<a.r+t.r+18){
+        if(a.type==='glasslancer'){allyShot(a,t,{mult:1.35,speed:500,pierce:3,hue:210,crystal:true});allyDamageEnemiesInRadius(a,55,.7,'rust');}
+        else {dmgEnemy(t,a.dmg*1.35,{quiet:true});ringFx(a.x,a.y,75,a.hue||145);}
+        a.charge=0;a.chargeTarget=0;return true;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  function tickBefriendedAlliesV20(dt){
+    if(!RUN||!RUN.allies||!RUN.allies.length)return;
+    if(RUN.isOnline&&!NET.isHost)return;
+    var A=RUN.allies;
+    for(var i=A.length-1;i>=0;i--){
+      var a=A[i];
+      if(!isFriend(a)){continue;}
+      if(a.hp<=0){allyVisualBurst(a);A.splice(i,1);continue;}
+      a.hurtT=Math.max(0,(a.hurtT||0)-dt);
+      a.pickupT=Math.max(0,(a.pickupT||0)-dt);
+      if(a.echoPendingT>0){a.echoPendingT-=dt;if(a.echoPendingT<=0&&a.echoTargetEid){var et=RUN.enemies.find(function(e){return !e.dead&&e.eid===a.echoTargetEid;});if(et){dmgEnemy(et,(a.dmg||10)*.55,{quiet:true});ringFx(et.x,et.y,48,320);}a.echoTargetEid=0;}}
+
+      /* Permanence means no timed decay. They remain through wave transitions. */
+      a.permanent=true;a.decayT=Infinity;a.decay=Infinity;
+
+      /* Enemy bullets can kill allies, but never heal/damage the wrong team. */
+      if(a.targetEid){var tracked=RUN.enemies.find(function(e){return !e.dead&&e.eid===a.targetEid;});if(!tracked)a.targetEid=0;}
+
+      if(a.pickupT<=0 && allyCollectPickups(a)){a.pickupT=.18;continue;}
+      var target=nearestEnemyForAlly(a,900);
+      if(target)a.targetEid=target.eid;
+
+      if(a.charge>0){if(tickAllyCharge(a,dt))continue;}
+
+      /* Support allies stay near the team while doing their special action. */
+      if(a.aiRole==='support'){
+        var op=ownerPlayer(a.ownerId);
+        if(op&&d2(a.x,a.y,op.x,op.y)>360*360){var dd=Math.hypot(op.x-a.x,op.y-a.y)||1;a.x+=(op.x-a.x)/dd*a.spd*dt;a.y+=(op.y-a.y)/dd*a.spd*dt;}
+        tickAllySpecial(a,dt,target);continue;
+      }
+
+      if(a.aiRole==='breaker' && target){tickAllySpecial(a,dt,target);continue;}
+      if(a.aiRole==='ranged' && target){tickAllySpecial(a,dt,target);continue;}
+      if(a.aiRole==='summoner' && target){tickAllySpecial(a,dt,target);continue;}
+      if(target)tickAllySpecial(a,dt,target);
+    }
+  }
+
+  function tickHostileContactsV20(dt){
+    if(!RUN||RUN.isOnline&&!NET.isHost)return;
+    var friends=liveFriends();
+    if(!friends.length)return;
+    liveEnemies().forEach(function(e){
+      e.allyTouchT=Math.max(0,(e.allyTouchT||0)-dt);
+      if(e.allyTouchT>0)return;
+      for(var i=0;i<friends.length;i++){
+        var a=friends[i];
+        if(d2(e.x,e.y,a.x,a.y)<(e.r+a.r+6)*(e.r+a.r+6)){
+          a.hp-= (e.dmg||10) * (a.incomingMul||.5);
+          a.hurtT=.12; e.allyTouchT=.7;
+          RUN.parts.push({x:a.x,y:a.y,vx:rnd(-55,55),vy:rnd(-55,55),t:.15,life:.15,r:2,hue:145});
+          if(a.hp<=0){a.hp=0;allyVisualBurst(a);var idx=RUN.allies.indexOf(a);if(idx>=0)RUN.allies.splice(idx,1);}
+          break;
+        }
+      }
+    });
+  }
+
+  function tickAllyBulletsV20(dt){
+    if(!RUN||!RUN.allyBullets)return;
+    if(RUN.isOnline&&!NET.isHost)return;
+    for(var i=RUN.allyBullets.length-1;i>=0;i--){
+      var b=RUN.allyBullets[i];
+      b.life-=dt;
+      if(b.homing){
+        var nearest=liveEnemies().sort(function(a,c){return d2(a.x,a.y,b.x,b.y)-d2(c.x,c.y,b.x,b.y);})[0];
+        if(nearest){var ang=Math.atan2(nearest.y-b.y,nearest.x-b.x),cur=Math.atan2(b.vy,b.vx),dif=ang-cur;while(dif>Math.PI)dif-=TAU;while(dif<-Math.PI)dif+=TAU;cur+=clamp(dif,-3.8*dt,3.8*dt);var sp=Math.hypot(b.vx,b.vy);b.vx=Math.cos(cur)*sp;b.vy=Math.sin(cur)*sp;}
+      }
+      b.x+=b.vx*dt;b.y+=b.vy*dt;
+      var hit=false;
+      for(var j=0;j<RUN.enemies.length;j++){
+        var e=RUN.enemies[j];if(!e||e.dead)continue;
+        if(d2(b.x,b.y,e.x,e.y)<(b.r+e.r)*(b.r+e.r)){
+          dmgEnemy(e,b.dmg,{quiet:true});
+          if(b.status==='burn')addBurn(e,b.dmg*.18,b.statusTime||1.5);
+          if(b.status==='corrode'||b.corrode)addCorrode(e,3,.35);
+          if(b.status==='rust')addRust(e,3,.6);
+          if(b.status==='shock')addShock(e,1.1);
+          if(b.freeze)addFreeze(e,1);
+          if(b.mark)e.mark=Math.max(e.mark||0,3);
+          RUN.parts.push({x:b.x,y:b.y,vx:rnd(-90,90),vy:rnd(-90,90),t:.18,life:.18,r:2,hue:b.hue});
+          if(b.explRadius){aoe(b.x,b.y,b.explRadius,b.dmg*.6,b.hue);}
+          if(b.crystal){ringFx(b.x,b.y,65,b.hue,6);}
+          if(b.pierce>0){b.pierce--;continue;}
+          hit=true;break;
+        }
+      }
+      if(hit||b.life<=0||b.x<-50||b.x>W+50||b.y<-50||b.y>H+50)RUN.allyBullets.splice(i,1);
+    }
+  }
+
+  /* Enemy projectiles now collide with friendly converted enemies as well as
+     players. This makes them true members of the player's team. */
+  var __updBulletsV20=updBullets;
+  updBullets=function(dt){
+    __updBulletsV20(dt);
+    if(!RUN||!RUN.allies)return;
+    if(RUN.isOnline&&!NET.isHost)return;
+    RUN.ebullets.forEach(function(b){
+      if(b.life<=0)return;
+      liveFriends().forEach(function(a){
+        if(b.life<=0)return;
+        if(d2(b.x,b.y,a.x,a.y)<(b.r+a.r)*(b.r+a.r)){
+          a.hp-=b.dmg;
+          a.hurtT=.12;
+          RUN.parts.push({x:a.x,y:a.y,vx:rnd(-60,60),vy:rnd(-60,60),t:.15,life:.15,r:2,hue:145});
+          b.life=0;
+        }
+      });
+    });
+    RUN.ebullets=RUN.ebullets.filter(function(b){return b.life>0;});
+  };
+
+  /* Remove converted actors from the hostile list after every simulation step.
+     This is what makes wave completion ignore allies and prevents enemy-vs-
+     enemy collision logic from ever treating them as hostile. */
+  var __updateV20=update;
+  update=function(dt){
+    window.__isoV20Dt=dt;
+    __updateV20(dt);
+    if(!RUN)return;
+    if(RUN.isOnline&&!NET.isHost)return;
+    if(RUN.enemies)RUN.enemies=RUN.enemies.filter(function(e){return e&&!e.dead&&!e._befriended;});
+    tickAllyBulletsV20(dt);
+    tickBefriendedAlliesV20(dt);
+    tickHostileContactsV20(dt);
+    if(RUN.enemies)RUN.enemies=RUN.enemies.filter(function(e){return e&&!e.dead&&!e._befriended;});
+    if(RUN.isOnline&&NET.isHost)broadcastGameState(false);
+  };
+
+  /* Start a fresh round with no carry-over from the previous run. Wave
+     transitions themselves never clear RUN.allies, so permanent friends stay. */
+  var __startV20=start;
+  start=function(){
+    var r=__startV20.apply(this,arguments);
+    if(RUN){RUN.allyBullets=[];RUN.allies=RUN.allies||[];}
+    return r;
+  };
+
+  /* Make nicotine's permanent ally state visible and readable. */
+  var __renderV20=render;
+  render=function(){
+    __renderV20();
+    if(!RUN||!RUN.allies||!RUN.allies.length)return;
+    liveFriends().forEach(function(a){
+      var pulse=.75+.25*Math.sin(RUN.t*5+(a.eid||0));
+      cx.save();
+      cx.translate(a.x,a.y);
+      cx.strokeStyle='rgba(126,240,166,'+(.75*pulse)+')';cx.lineWidth=3;
+      cx.beginPath();cx.arc(0,0,a.r+7+2*pulse,0,TAU);cx.stroke();
+      cx.strokeStyle='rgba(223,255,232,.42)';cx.lineWidth=1;
+      cx.beginPath();cx.arc(0,0,a.r+11,0,TAU);cx.stroke();
+      cx.restore();
+      cx.font='bold 9px "Share Tech Mono"';cx.textAlign='center';cx.fillStyle='#7ef0a6';
+      cx.fillText('ALLY',a.x,a.y-a.r-13);
+    });
+    if(RUN.allyBullets){
+      RUN.allyBullets.forEach(function(b){
+        cx.fillStyle='hsla('+((b.hue==null?145:b.hue))+',90%,68%,.95)';
+        cx.shadowBlur=10;cx.shadowColor=cx.fillStyle;
+        cx.beginPath();cx.arc(b.x,b.y,b.r+(b.crystal?1.5:0),0,TAU);cx.fill();cx.shadowBlur=0;
+      });
+    }
+  };
+
+  /* Multiplayer snapshots include the stable ally identity and enough data for
+     clients to render the exact same team state. The host remains authoritative. */
+  if(window.NET){
+    var __bsV20=NET.broadcastSnapshot;
+    NET.broadcastSnapshot=function(s){
+      if(s&&RUN){
+        s.allies=(RUN.allies||[]).map(function(a){return{
+          eid:a.eid,type:a.type,x:a.x,y:a.y,hp:a.hp,maxhp:a.maxhp,r:a.r,hue:145,shape:a.shape,
+          ownerId:a.ownerId,name:a.name,befriended:!!a.befriended,team:'player',permanent:true,
+          spd:a.spd,dmg:a.dmg,special:a.special||null
+        };});
+        s.allyBullets=(RUN.allyBullets||[]).map(function(b){return{x:b.x,y:b.y,r:b.r,hue:b.hue};});
+      }
+      return __bsV20(s);
+    };
+    var __snV20=NET.onStateSnapshot;
+    NET.onStateSnapshot=function(s){
+      var r=__snV20(s);
+      if(RUN&&s&&s.allies){
+        var sx=W/(RUN.hostW||W),sy=H/(RUN.hostH||H);
+        RUN.allies=s.allies.map(function(a){return{
+          eid:a.eid,type:a.type,x:a.x*sx,y:a.y*sy,hp:a.hp,maxhp:a.maxhp,r:Math.max(2,a.r*Math.min(sx,sy)),
+          hue:145,shape:a.shape,ownerId:a.ownerId,name:a.name,befriended:!!a.befriended,team:'player',permanent:true,
+          spd:a.spd||100,dmg:a.dmg||10,special:a.special||null,incomingMul:.5,decayT:Infinity,decay:Infinity
+        };});
+      }
+      if(RUN&&s&&s.allyBullets){
+        var sx2=W/(RUN.hostW||W),sy2=H/(RUN.hostH||H);
+        RUN.allyBullets=s.allyBullets.map(function(b){return{x:b.x*sx2,y:b.y*sy2,r:b.r,hue:b.hue||145,life:.12,vx:0,vy:0};});
+      }
+      return r;
+    };
+  }
+
+  /* Friendly fire between hostile enemies was already disabled by the enemy
+     architecture; this final guard makes the rule explicit for all custom
+     enemy-vs-enemy code paths. */
+  window.ISO_IS_PLAYER_TEAM_ALLY=isFriend;
+
+  /* Friendly enemy bullets must never hurt the player when they originate from
+     converted actors: ally attacks use allyBullets, never ebullets. */
+  setTimeout(function(){
+    try{
+      var panel=document.getElementById('mega-update-panel');
+      if(panel&&!panel.dataset.v20ally){
+        panel.dataset.v20ally='1';
+        panel.insertAdjacentHTML('beforeend','<div class="urow"><div class="uver">8.6 · ALLIES</div><div class="utxt">Befriended enemies now permanently join your team until they are defeated. They stop using attacks on players, attack hostile enemies instead, can help collect XP and coins, can be targeted by enemy attacks, show a green ALLY outline, and their own enemy attack style is preserved.</div></div><div class="urow"><div class="uver">8.6 · NICOTINE</div><div class="utxt">Nicotine shots now slow enemies and weaken their attacks by 25%, while non-boss enemies can be recruited as permanent allies. Befriended targets no longer count as hostiles, so they do not block wave completion.</div></div>');
+      }
+    }catch(e){}
+  },650);
+  console.log('ISO_REACTOR_V20 active: permanent nicotine allies, 25% M1 debuff, enemy targeting + ranged team AI, ally pickup collection, green ally outlines, multiplayer ally sync.');
+})();
+
 })();
