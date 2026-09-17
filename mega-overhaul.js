@@ -1,4 +1,4 @@
-/* ISOTOPE BUILD 6.0 — MEGA QOL / CONTENT / CO-OP OVERHAUL
+/* ISOTOPE BUILD 7.5 — MEGA QOL / CONTENT / CO-OP OVERHAUL
    Loaded last. All modifications target the fixed build only. */
 (function(){
   'use strict';
@@ -216,7 +216,10 @@
   function renderUpdatePanel(){
     const host=$('#menuright')||$('#scr-menu'); if(!host||document.getElementById('mega-update-panel'))return;
     const d=document.createElement('div');d.id='mega-update-panel';
-    d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-family:var(--disp);font-size:16px;color:var(--cy);letter-spacing:.12em">UPDATE 6.0 · REACTOR OVERHAUL</b><span class="tag">LIVE BUILD</span></div>
+    d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-family:var(--disp);font-size:16px;color:var(--cy);letter-spacing:.12em">UPDATE 7.5 · STABILITY &amp; CO-OP INTEGRITY PASS</b><span class="tag">LIVE BUILD</span></div>
+      <div class="urow"><div class="uver">7.5 · CRITICAL FIX</div><div class="utxt">Found and fixed a root-cause bug where the game's actual "start run" entry point was permanently bound to an old, pre-patch version of the start function. This silently prevented several already-written fixes from ever running in a real game session: P2 was always given P1's element/ability instead of their own saved selection, equipped relics never actually applied to the run, and ally state wasn't cleared between runs. All three now work correctly because the underlying cause is fixed, not just the symptom.</div></div>
+      <div class="urow"><div class="uver">7.5 · ABILITY NAMES</div><div class="utxt">Removed a leftover block that was overwriting every element's Ability 2 and Ability 3 display names with one of only 11 shared category names (so many unrelated elements showed the exact same move name). Each element now keeps the name that was already being generated uniquely for it, so displayed names no longer collide across elements.</div></div>
+      <div class="urow"><div class="uver">7.5 · CO-OP</div><div class="utxt">Player 2's on-map icon and label now correctly reflect Player 2's own selected element instead of mirroring Player 1's.</div></div>
       <div class="urow"><div class="uver">VAULT</div><div class="utxt">Restored category/element colors, clearer owned / buyable / locked states, and automatic equip + UI reselection.</div></div>
       <div class="urow"><div class="uver">MASTERY</div><div class="utxt">Opening the screen follows your equipped element and explicitly shows the equipped ability, its description, and its individual upgrade path.</div></div>
       <div class="urow"><div class="uver">CO-OP</div><div class="utxt">Offline tab rooms use BroadcastChannel room codes first, so two tabs opened from the same local file can join the same room; hosted builds may additionally use PeerJS. Player element + signature loadouts stay per-player while run rewards remain shared where appropriate.</div></div>
@@ -381,5 +384,5 @@
 
   renderUpdatePanel(); refreshVault();
   setInterval(()=>{refreshVault();if(!$('#scr-mastery')?.classList.contains('hidden'))renderMastery();},1600);
-  console.log('ISOTOPE BUILD 6.0 MEGA OVERHAUL ACTIVE');
+  console.log('ISOTOPE BUILD 7.5 MEGA OVERHAUL ACTIVE');
 })();

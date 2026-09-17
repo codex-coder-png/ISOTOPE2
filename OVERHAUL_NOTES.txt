@@ -1,6 +1,40 @@
-ISOTOPE BUILD 6.0 — MEGA OVERHAUL
+ISOTOPE BUILD 7.5 — STABILITY & CO-OP INTEGRITY PASS
 
 Target: isotope-fixed only. The OLD-isotope archive was used as source/reference; it was not modified.
+
+BUILD 7.5 (this pass) — root-cause fixes, verified with an automated headless
+load test (jsdom) that boots the real game scripts and calls the real
+GAME.start() entry point:
+
+1. CRITICAL: window.GAME.start — the function the UI actually calls to
+   launch a run — was exported once, early in game.js, and captured a
+   frozen snapshot of start() from BEFORE five later patches to start()
+   were even defined. Those five patches (P2's own saved element/ability
+   slot, relic loadout application, ally-state reset) were syntactically
+   correct but never executed in a live game, because GAME.start never
+   pointed at them. Fixed by having GAME.start call the live `start`
+   binding at invocation time instead of a frozen one. Verified end-to-end:
+   starting a local co-op run now gives P1 and P2 genuinely different
+   elements when different elements are selected, and a relic loadout set
+   before a run now actually appears in RUN.relics during the run.
+2. Removed a dead/harmful block that ran on every load and overwrote every
+   element's Ability 2 and Ability 3 display NAME with one of only 11
+   category-shared names (e.g. many unrelated elements all displayed
+   "Volatile Dash" for Ability 2). The per-element unique names generated
+   elsewhere (data.js's makeSignatureChoices, and the later semantic-ability
+   pass) were already correct and are no longer clobbered. Verified: three
+   unrelated elements now show three different Ability 2 names.
+3. P2's on-screen operator icon/label now shows P2's own selected element
+   instead of mirroring P1's (this was a direct downstream effect of #1).
+
+Known remaining architecture note (not yet fixed): the ability-execution
+path for compounds still runs through several nested legacy fallbacks
+(custom-3-moves.js's ARCH tables, the CAT_AB/SPEC/getMyAbil block, and the
+newer semantic-exec system) before landing on a working handler. None of
+this is dead in the sense #1 above was, but it's worth a follow-up pass to
+confirm every compound resolves through the intended semantic handler
+rather than one of the older fallbacks, the same way this pass confirmed it
+for elements.
 
 This update restores the legacy periodic-vault hue treatment, preserves per-element equipped abilities in Element Mastery, auto-equips newly purchased elements, and keeps the live H/Stats widget hidden outside active rounds.
 

@@ -474,12 +474,12 @@
     if (s === 0) return [rnd(W), -30]; if (s === 1) return [rnd(W), H + 30]; if (s === 2) return [-30, rnd(H)]; return [W + 30, rnd(H)]
   }
   function spawnEnemy(type, x, y, elite) {
-    const w = RUN.wave, b = ETYPES[type] || ETYPES.mote, hpMul = (1 + (w - 1) * .22 + Math.pow(w, 1.5) * .02) * playerScale();
+    const w = RUN.wave, b = ETYPES[type] || ETYPES.mote, hpMul = (1 + (w - 1) * .25 + Math.pow(w, 1.5) * .025) * playerScale();
     if (!ETYPES[type]) type = 'mote';
     if (x === undefined) [x, y] = edgePos();
     const e = {
       type, x, y, r: b.r, hp: b.hp * hpMul, maxhp: b.hp * hpMul, spd: b.spd * rnd(.88, 1.12),
-      dmg: b.dmg + w * .6, coin: b.coin, xp: b.xp, hue: b.hue, shape: b.shape, seed: rnd(10),
+      dmg: b.dmg + w * .9 + w * w * .025, coin: b.coin, xp: b.xp, hue: b.hue, shape: b.shape, seed: rnd(10),
       touch: 0, slowT: 0, stun: 0, conf: 0, flash: 0, mark: 0, rust: 0, rustAmp: 0, shock: 0, shockT: 0, brittle: 0, brittleT: 0, drenched: 0, orb: rnd(TAU), shootT: rnd(1, 2.5), charge: 0, healT: 0,
       phaseT: rnd(1, 2.5), invuln: false, chgT: rnd(2, 3.5), charging: 0, seedT: rnd(3, 5)
     };
@@ -496,7 +496,7 @@
   }
   function spawnBoss() {
     const w = RUN.wave, def = BD[pickBossIdx()];
-    const hp = 850 * (1 + w * .32) * def.hpMul * playerScale();
+    const hp = 850 * (1 + w * .38 + w * w * .006) * def.hpMul * playerScale();
     const e = {
       type: 'boss', boss: true, x: W / 2, y: 110, r: 44, pat: def.pat, fast: def.fast, canCharge: def.charge,
       hp, maxhp: hp, spd: def.spd || 40, dmg: 22, coin: 40 + w * 2, xp: 30, hue: def.hue, shape: def.shape,
@@ -532,7 +532,7 @@
     else if(id==='pu_critical')p.puCrit=1,p.puTimer=6;
     else if(id==='pu_pull')RUN.wells.push({x:p.x,y:p.y,r:180,t:4});
     else if(id==='pu_dash')p.dashCd=0,p.puDash=3;
-    else if(id==='pu_coin'){RUN.coins+=75;SAVE.addCoins(75)}
+    else if(id==='pu_coin'){RUN.coins+=Math.floor(75*.5);SAVE.addCoins(Math.floor(75*.5))}
     else if(id==='pu_cleanse')p.nox=0,p.sh=ST.shieldMax;
     const u=PVP_POWERUPS.find(x=>x.id===id);if(u){p.puName=u.n;banner('POWERUP: '+u.n,1100);ringFx(p.x,p.y,180,120);SFX.unlock()}
   }
@@ -688,7 +688,7 @@
     if (e.burn) RUN.enemies.forEach(o => { if (!o.dead && o !== e && d2(o.x, o.y, e.x, e.y) < 90 * 90) addBurn(o, e.burn.dps, 2, 1); });
     const LK = LAB();
     if (LK && LK.on) {
-      if (LK.on.includes('goldKill')) { RUN.coins += 2; SAVE.addCoins(2); }
+      if (LK.on.includes('goldKill')) { RUN.coins += 1; SAVE.addCoins(1); }
       if (LK.on.includes('rageKill')) RUN.bloodlustStacks = Math.min(20, (RUN.bloodlustStacks || 0) + 1);
       if (LK.on.includes('infect')) RUN.enemies.forEach(o => { if (!o.dead && d2(o.x, o.y, e.x, e.y) < 110 * 110) addPoison(o, ST.dmg * .5, 3); });
       if (LK.on.includes('critMass')) { RUN.cm = (RUN.cm || 0) + 1; if (RUN.cm >= 6) { RUN.cm = 0; aoe(e.x, e.y, 160, ST.dmg * 2.5, 280); } }
@@ -709,7 +709,7 @@
     if (Math.random() < .028) drop(e.x + rnd(-12,12), e.y + rnd(-12,12), 'charge', .9);
     if (Math.random() < .018) drop(e.x + rnd(-12,12), e.y + rnd(-12,12), 'overdrive', 1);
     if (Math.random() < .012) drop(e.x + rnd(-12,12), e.y + rnd(-12,12), 'vacuum', 1);
-    if ((e.elite || e.boss) && Math.random() < (e.boss ? 1 : .3)) {
+    if ((e.elite || e.boss) && Math.random() < (e.boss ? .004 : .0035)) {
       /* Hex artifacts are deliberately scarcer than a mythic card: only 3%
          of relic drops may be one, while ordinary relic drops stay useful. */
       const hexes=RELICS.filter(r=>String(r.id).indexOf('hex_')===0);
@@ -890,7 +890,7 @@
     if (!card) return;
     if (key.startsWith('filler:')) {
       if (key === 'filler:hp') RUN.players.forEach(p => { p.hp = Math.min(ST.hp, p.hp + 30); });
-      else { SAVE.addCoins(40); RUN.coins += 40; }
+      else { SAVE.addCoins(20); RUN.coins += 20; }
       SFX.coin();
     } else { RUN.ab[key] = (RUN.ab[key] || 0) + 1; SFX.unlock(); }
     RUN.levelDone[pid] = true;
@@ -1097,6 +1097,10 @@
           for (let i = 0; i < 3; i++)RUN.parts.push({ x: b.x, y: b.y, vx: rnd(-120, 120), vy: rnd(-120, 120), t: .2, life: .2, hue: RUN.hue, r: 1.5 });
           if (!e.dead && !e.boss) { const ka = Math.atan2(b.vy, b.vx); e.x += Math.cos(ka) * ST.kb * .06; e.y += Math.sin(ka) * ST.kb * .06 }
           applyTraitHit(b, e);
+          if (b.nicotineFriend && !e.boss && !e.dead) {
+            e._nicotineFriend=true;e._nicotineFriendT=8;e._nicotineOwner=b.owner;e._nicotineRate=.5;e.slowT=Math.max(e.slowT||0,.5);
+            e.flash=.18;
+          }
           if (b.burn) addBurn(e, ST.dmg * .35, 3);
           if (b.poison) addPoison(e, ST.dmg * .45, 3.5);
           if (b.corrode) addCorrode(e, 4, .3);
@@ -1212,6 +1216,20 @@
   function updEnemies(dt) {
     RUN.enemies.forEach(e => {
       if (e.dead) return;
+      /* Nicotine allies: they fight other enemies, never the players, and decay slowly. */
+      if (e._nicotineFriend) {
+        e._nicotineFriendT = Math.max(0, (e._nicotineFriendT || 0) - dt);
+        if (e._nicotineFriendT <= 0) { e._nicotineFriend = false; e._nicotineOwner = null; e._nicotineRate = 1; }
+        else {
+          e._nicotineAtkT = (e._nicotineAtkT || .35) - dt;
+          if (e._nicotineAtkT <= 0) {
+            e._nicotineAtkT = .95;
+            let target = null, td = Infinity;
+            RUN.enemies.forEach(o => { if (!o.dead && o !== e && !o._nicotineFriend) { const dd = d2(e.x,e.y,o.x,o.y); if (dd < td) { td = dd; target = o; } } });
+            if (target && td < 520*520) { dmgEnemy(target, (e.dmg||10)*.62, { quiet:true }); ringFx(target.x,target.y,290,35); }
+          }
+        }
+      }
       e.flash = Math.max(0, e.flash - dt); if (e.orbCd) e.orbCd -= dt;
       if (e.mark > 0) e.mark -= dt;
       if (e.poison) {
@@ -1238,7 +1256,9 @@
       if (e.shockT > 0) { cx.strokeStyle = 'hsla(285,95%,70%,.85)'; cx.lineWidth = 2; cx.beginPath(); for(let i=0;i<8;i++){const a=i/8*TAU+RUN.t*2;cx.lineTo(Math.cos(a)*(e.r+5),Math.sin(a)*(e.r+5));} cx.stroke(); }
       if (e.brittleT > 0) { cx.strokeStyle = 'hsla(205,100%,86%,.8)'; cx.setLineDash([2,3]); cx.beginPath(); cx.arc(0,0,e.r+6,0,TAU); cx.stroke(); cx.setLineDash([]); }
       if (e.drenched > 0) { cx.fillStyle='hsla(195,90%,65%,.14)'; cx.beginPath(); cx.arc(0,0,e.r+4,0,TAU); cx.fill(); }
-      const tp = nearestPlayer(e.x, e.y);
+      if (e._nicotineFriend) { cx.strokeStyle='hsla(150,95%,65%,.95)'; cx.lineWidth=2.5; cx.beginPath(); cx.arc(0,0,e.r+8,0,TAU); cx.stroke(); }
+      let tp = nearestPlayer(e.x, e.y);
+      if (e._nicotineFriend) { let foe=null,fd=Infinity; RUN.enemies.forEach(o=>{if(!o.dead&&o!==e&&!o._nicotineFriend){const dd=d2(e.x,e.y,o.x,o.y);if(dd<fd){fd=dd;foe=o;}}}); if(foe)tp=foe; }
       let dx = tp.x - e.x, dy = tp.y - e.y, d = Math.hypot(dx, dy) || 1, mx = dx / d, my = dy / d;
       if (e.type === 'shielder') e.face = Math.atan2(dy, dx);
       if (e.stun > 0) { e.stun -= dt }
@@ -1319,7 +1339,7 @@
       if (e.slowT > 0) e.slowT -= dt;
       e.touch -= dt;
       RUN.players.forEach(p => {
-        if (!p.downed && e.touch <= 0 && d2(e.x, e.y, p.x, p.y) < (e.r + 13) * (e.r + 13)) {
+        if (!p.downed && !e._nicotineFriend && e.touch <= 0 && d2(e.x, e.y, p.x, p.y) < (e.r + 13) * (e.r + 13)) {
           hurtPlayer(p, e.dmg); e.touch = .7;
           if (e.type === 'vampire') e.hp = Math.min(e.maxhp, e.hp + e.dmg * .6);
           if (e.type === 'crusher') { const ka = Math.atan2(p.y - e.y, p.x - e.x); p.x += Math.cos(ka) * 46; p.y += Math.sin(ka) * 46 }
@@ -1348,7 +1368,7 @@
         if (dd < ST.magnet * ST.magnet) { const dl = Math.sqrt(dd) || 1; k.vx += (p.x - k.x) / dl * 900 * dt; k.vy += (p.y - k.y) / dl * 900 * dt }
         if (dd < 20 * 20 && !k.got) {
           k.got = true;
-          if (k.t === 'coin') { RUN.coins += k.v; SAVE.addCoins(k.v); SFX.coin() }
+          if (k.t === 'coin') { RUN.coins += Math.max(1,Math.floor(k.v*.5)); SAVE.addCoins(Math.max(1,Math.floor(k.v*.5))); SFX.coin() }
           else if (k.t === 'xp') { gainXP(k.v); SFX.xp() }
           else if (k.t === 'hp') { p.hp = Math.min(ST.hp, p.hp + k.v); SFX.coin() }
           else if (k.t === 'shield') { p.sh = Math.min(ST.shieldMax, (p.sh || 0) + k.v); p.iframes = Math.max(p.iframes || 0, .35); SFX.unlock(); ringFx(p.x,p.y,190,80) }
@@ -1589,7 +1609,7 @@
     else if (RUN.mode !== 'pvp' && RUN.mode !== 'net_pvp') {
       spawnLoop(wdt);
       if (RUN.spawnLeft <= 0 && RUN.enemies.length === 0 && RUN.state === 'play') {
-        const bonus = 5 + RUN.wave; RUN.coins += bonus; SAVE.addCoins(bonus); SAVE.addMxp(RUN.el.id, 5);
+        const bonus = Math.max(1,Math.floor((5 + RUN.wave)*.5)); RUN.coins += bonus; SAVE.addCoins(bonus); SAVE.addMxp(RUN.el.id, 5);
         banner('WAVE ' + RUN.wave + ' CLEARED  +◈' + bonus, 1600);
         RUN.state = 'inter'; RUN.interT = 4
       }
@@ -1659,7 +1679,7 @@
   ${ST.shieldMax ? `<div class="bar sh"><i style="transform:scaleX(${clamp(p.sh / ST.shieldMax, 0, 1)})"></i></div>` : ''}</div>`).join('');
 
     document.getElementById('h-wave').textContent = 'WAVE ' + String(Math.max(1, RUN.wave)).padStart(2, '0');
-    document.getElementById('h-foes').textContent = RUN.mode === 'pvp' || RUN.mode === 'net_pvp' ? 'PVP ARENA' : (RUN.state === 'inter' ? 'NEXT WAVE IN ' + Math.ceil(RUN.interT) : 'HOSTILES: ' + (RUN.enemies.length + RUN.spawnLeft));
+    document.getElementById('h-foes').textContent = RUN.mode === 'pvp' || RUN.mode === 'net_pvp' ? 'PVP ARENA' : (RUN.state === 'inter' ? 'NEXT WAVE IN ' + Math.ceil(RUN.interT) + ' · AUTO ' + ((SAVE.raw.settings&&SAVE.raw.settings.autoWave)?'ON':'OFF') + (((SAVE.raw.settings&&SAVE.raw.settings.autoWave))?'':' · PRESS J') : 'HOSTILES: ' + (RUN.enemies.length + RUN.spawnLeft));
     document.getElementById('h-coins').textContent = '◈ ' + RUN.coins;
     document.getElementById('h-kills').textContent = 'KILLS ' + RUN.kills;
     document.getElementById('h-lv').textContent = 'LV ' + RUN.level;
@@ -2245,7 +2265,7 @@ A[75]=function(p){ p.puRate=1.75; p.puDamage=1.32; p.puTimer=6; hitCone(p,260,.6
 A[76]=function(p){ p.iframes=Math.max(p.iframes,1.5); hitCircle(p.x,p.y,245,ST.dmg*1.85,40,'stun'); near(p.x,p.y,260).forEach(function(e){ if(!e.boss){ e.x+=(e.x-p.x)*.2; e.y+=(e.y-p.y)*.2; e.stun=Math.max(e.stun,.6); } }); };
 A[77]=function(p){ for(var i=0;i<6;i++){ var x=clamp(p.x+rnd(-225,225),30,W-30),y=clamp(p.y+rnd(-225,225),30,H-30); fxTele(x,y,90,.55+i*.12,25); (function(x,y){ delayFx(function(){ hitStar(x,y,120,6,ST.dmg*1.85,25,'burn'); },i*150); })(x,y); } };
 A[78]=function(p){ hitCircle(p.x,p.y,220,ST.dmg*.75,300,'mark'); near(p.x,p.y,400).forEach(function(e){ e.mark=Math.max(e.mark,7); addPoison(e,ST.dmg*.42,5); addBurn(e,ST.dmg*.42,5); e.slowT=Math.max(e.slowT,2); }); };
-A[79]=function(p){ hitCircle(p.x,p.y,190,ST.dmg*.8,48,'mark'); near(p.x,p.y,420).forEach(function(e){ e.mark=Math.max(e.mark,6); e.coin=(e.coin||1)+3; }); RUN.coins+=25; SAVE.addCoins(25); };
+A[79]=function(p){ hitCircle(p.x,p.y,190,ST.dmg*.8,48,'mark'); near(p.x,p.y,420).forEach(function(e){ e.mark=Math.max(e.mark,6); e.coin=(e.coin||1)+3; }); RUN.coins+=13; SAVE.addCoins(13); };
 A[80]=function(p){
   /* Mercury — Liquid Body. This is the authoritative slot-0 implementation;
      the old Mercury Rain/radial signature is intentionally unreachable. */
@@ -2458,7 +2478,14 @@ var __drop=drop;
 drop=function(x,y,t,v){ return __drop(x,y,t,v); };
 var __start=start;
 start=function(){ var r=__start.apply(this,arguments); if(RUN){RUN.items=RUN.items||[];RUN.shop=null;} return r; };
-if(window.GAME){ GAME.start=function(){ var r=__start.apply(this,arguments); if(RUN){RUN.items=RUN.items||[];RUN.shop=null;} return r; }; }
+if(window.GAME){
+  /* IMPORTANT: do not snapshot `start` into a closed-over variable here.
+     `start` is reassigned many more times further down this file (P2's own
+     element/signature, relic loadout, ally reset, etc). Those later patches
+     must actually run when the UI launches a game, so GAME.start always
+     calls whatever `start` currently is at call time, not at export time. */
+  GAME.start=function(){ var r=start.apply(this,arguments); if(RUN){RUN.items=RUN.items||[];RUN.shop=null;} return r; };
+}
 function applyItems(){
  if(!RUN||!ST||!RUN.items||!RUN.items.length)return;
  RUN.items.forEach(function(id){ var it=ITEM_BY[id]; if(!it)return;
@@ -3053,7 +3080,7 @@ if(p0){if(prevQ>0&&p0.activeCd<=0)ISO_SFX.ready();if(prevD>0&&p0.dashCd<=0)ISO_S
 addEventListener('keydown',function(e){
 if(!RUN||document.getElementById('scr-game').classList.contains('hidden'))return;
 var hostish=!RUN.isOnline||NET.isHost;
-if(e.code==='KeyN'&&hostish&&RUN.state==='inter'){RUN.interT=0;RUN.coins+=2;SAVE.addCoins(2);banner('BREACH ACCELERATED +◈2',1200);ISO_SFX.skip();}
+if(e.code==='KeyN'&&hostish&&RUN.state==='inter'){RUN.interT=0;RUN.coins+=1;SAVE.addCoins(1);banner('BREACH ACCELERATED +◈2',1200);ISO_SFX.skip();}
 if(e.code==='KeyV'){SAVE.set.radar=SAVE.set.radar===0?1:0;SAVE.save();}
 if(e.code==='F3'){e.preventDefault();SAVE.set.fps=SAVE.set.fps?0:1;SAVE.save();}
 if(e.code==='KeyT'){var on=statDiv.style.display==='block';statDiv.style.display=on?'none':'block';
@@ -3391,7 +3418,7 @@ __cc(pid,key);
 if(card&&RUN&&card.rarity){
 if(card.rarity==='rare')ST.dmg*=1.02;
 else if(card.rarity==='epic')RUN.players.forEach(function(p){p.hp=Math.min(ST.hp,p.hp+10);});
-else if(card.rarity==='legendary'){RUN.coins+=15;SAVE.addCoins(15);}
+else if(card.rarity==='legendary'){RUN.coins+=8;SAVE.addCoins(8);}
 else if(card.rarity==='mythic')ST.crit+=3;
 }
 };
@@ -4269,14 +4296,20 @@ function getMyAbil(el,slot){
  if(!pair)return null;
  return pair[slot-1]||null;
 }
-/* ---- choices rewrite: slot0 default free, 1/2 purchasable ---- */
-Object.values(DATA.ELEMS).forEach(function(e){
- var pair=SPEC[e.id]||CAT_AB[e.cat];if(!pair)return;
- var ch=e.choices||e.signatures||[];
- ch[1]=Object.assign({},ch[1]||{},{id:'ab_'+e.id+'_1',slot:1,ic:'◆',name:pair[0].n,desc:pair[0].d,main:false});
- ch[2]=Object.assign({},ch[2]||{},{id:'ab_'+e.id+'_2',slot:2,ic:'◆',name:pair[1].n,desc:pair[1].d,main:false});
- e.choices=ch;e.signatures=ch;
-});
+/* ---- DEAD CODE REMOVED (v7.5): this used to overwrite every element's
+   slot-2/slot-3 ability NAME with one of only 11 category-shared CAT_AB
+   names (e.g. every category-0 element displayed "Volatile Dash"/"Sodium
+   Toss" no matter which element it was). data.js's makeSignatureChoices()
+   already gives every element a name unique to that element (hashed from
+   its own id across a 20-style pool), and ability-semantic-overhaul.js
+   already gives every element/compound a uniquely-seeded exec function.
+   This block was stomping the good per-element name with a shared one
+   right before those systems ran, so it's removed rather than patched. The
+   CAT_AB/SPEC arrays and getMyAbil() below are left in place only because
+   later code still calls them as an inert fallback deep in the ability
+   dispatch chain; they are effectively unreachable now that
+   ISO_EXEC_ELEMENT_FIRST/ISO_EXEC_DESCRIPTION_ABILITY intercept every
+   element ability first. */
 (function(){var g=DATA.MOLDEF[GLY];if(g){var pair=SPEC[GLY];var ch=g.choices||g.signatures||[];ch[1]=Object.assign({},ch[1]||{},{id:'ab_gly_1',slot:1,ic:'◆',name:pair[0].n,desc:pair[0].d,main:false});ch[2]=Object.assign({},ch[2]||{},{id:'ab_gly_2',slot:2,ic:'◆',name:pair[1].n,desc:pair[1].d,main:false});g.choices=ch;g.signatures=ch;}})();
 /* ---- useActive: gating + custom fns + glycine passive handled in update ---- */
 var __ua=useActive;
@@ -5369,6 +5402,491 @@ console.log('ISO_UPDATE2_GAME active.');
   }
 
   console.log('ISO_EXACT_ABILITY_ROUTER_V11 active: element Ability 1 restored to A[n]; description-driven compound contracts + Ibuprofen exact mechanics enabled.');
+})();
+
+
+/* ISO_REACTOR_V14_FINAL_QOL
+ * Relic loadouts, per-player active ability context, wave controls, richer
+ * level-up rules, pause settings, and end-of-run cleanup. */
+(function(){
+  if(window.__ISO_REACTOR_V14_FINAL_QOL__)return;window.__ISO_REACTOR_V14_FINAL_QOL__=true;
+
+  /* ---------- relic catalogue ---------- */
+  var extraRelics=[
+    {id:'level_mend',ic:'✚',n:'Second Wind',d:'Heal every operator for 12% of max health whenever anyone levels up.',rare:true,boon:true},
+    {id:'rarity_focus',ic:'✦',n:'Prism of Choice',d:'Each level-up uses one chosen card rarity. Pick any card from that rarity.',rare:true,boon:true},
+    {id:'fever_engine',ic:'♨',n:'Fever Engine',d:'Damage rises a little each wave, but your shield is smaller.',rare:true,boon:true,downside:true},
+    {id:'heavy_gravity',ic:'◆',n:'Heavy Gravity',d:'Enemies move slower, but your own movement is slower too.',rare:true,boon:true,downside:true},
+    {id:'wild_reactor',ic:'⚗',n:'Wild Reactor',d:'Every wave has one extra elite, but elite drops are richer.',rare:true,boon:true,downside:true}
+  ];
+  extraRelics.forEach(function(r){if(!RELICS.some(x=>x.id===r.id))RELICS.push(r);});
+  DATA.RELICS=RELICS;
+
+  /* Persisted on/off relic loadout. There is no forced limit. */
+  SAVE.raw.relicLoadout=Array.isArray(SAVE.raw.relicLoadout)?SAVE.raw.relicLoadout:[];
+  function relicOn(id){return SAVE.raw.relicLoadout.indexOf(id)>=0;}
+  function toggleRelic(id){var a=SAVE.raw.relicLoadout,i=a.indexOf(id);if(i>=0)a.splice(i,1);else a.push(id);SAVE.save();renderRelicPanel();}
+  function getOwnedRelics(){
+    /* Artifact drops are run-only, but any artifact ever collected is also kept
+       in the player's permanent relic locker for future toggling. */
+    var ids=Array.isArray(SAVE.raw.relicsFound)?SAVE.raw.relicsFound.slice():[];
+    RELICS.forEach(function(r){if(SAVE.raw.relicsFound&&SAVE.raw.relicsFound.indexOf(r.id)>=0)ids.push(r.id);});
+    return [...new Set(ids)].map(function(id){return RELICS.find(function(r){return r.id===id;});}).filter(Boolean);
+  }
+  function ensureStarterRelics(){
+    /* Existing builds used these relics as run drops; seed a small locker for
+       old saves while leaving new rare artifacts rare. */
+    if(!Array.isArray(SAVE.raw.relicsFound))SAVE.raw.relicsFound=[];
+    ['core','coolant','magnet'].forEach(function(id){if(RELICS.some(function(r){return r.id===id})&&SAVE.raw.relicsFound.indexOf(id)<0)SAVE.raw.relicsFound.push(id);});
+    SAVE.save();
+  }
+  ensureStarterRelics();
+
+  /* ---------- run relic state ---------- */
+  var oldStart=start;
+  start=function(){
+    var out=oldStart.apply(this,arguments);
+    if(RUN){
+      RUN.relics=SAVE.raw.relicLoadout.slice();
+      RUN.waveRelicBonus=0;
+      try{computeStats();}catch(e){}
+    }
+    return out;
+  };
+
+  /* ---------- make relic effects helpful or harmful ---------- */
+  var oldCompute=computeStats;
+  computeStats=function(){
+    oldCompute();if(!RUN||!ST)return;
+    var rr=RUN.relics||[];
+    if(rr.indexOf('level_mend')>=0)ST.levelMend=true;
+    if(rr.indexOf('rarity_focus')>=0)ST.rarityFocus=true;
+    if(rr.indexOf('fever_engine')>=0){ST.dmg*=1+Math.min(.32,(RUN.wave||0)*.018);ST.shieldMax=Math.max(0,ST.shieldMax-10);}
+    if(rr.indexOf('heavy_gravity')>=0){ST.spd*=.88;}
+    if(rr.indexOf('wild_reactor')>=0){ST.eliteRate=.12;}
+  };
+
+  /* ---------- level-up relics ---------- */
+  var oldGainXP=gainXP;
+  gainXP=function(v){
+    var before=RUN?RUN.level:0;var out=oldGainXP.apply(this,arguments);
+    if(RUN&&RUN.level>before&&RUN.relics){
+      if(RUN.relics.indexOf('level_mend')>=0){RUN.players.forEach(function(p){if(!p.downed)p.hp=Math.min(ST.hp,p.hp+ST.hp*.12);p.sh=Math.min(ST.shieldMax,p.sh+12);ringFx(p.x,p.y,RUN.hue,70);});}
+      RUN.relicHealTick=(RUN.relicHealTick||0)+(RUN.level-before);
+    }
+    return out;
+  };
+
+  /* ---------- artifact ownership on pickup ---------- */
+  var oldDrop=drop;
+  drop=function(x,y,t,v){
+    if(t==='relic'&&v){SAVE.raw.relicsFound=Array.isArray(SAVE.raw.relicsFound)?SAVE.raw.relicsFound:[];if(SAVE.raw.relicsFound.indexOf(v)<0){SAVE.raw.relicsFound.push(v);SAVE.save();}}
+    return oldDrop(x,y,t,v);
+  };
+
+  /* ---------- wave scaling + enemy special cooldowns ---------- */
+  var oldStartWave=startWave;
+  startWave=function(){
+    var out=oldStartWave.apply(this,arguments);
+    if(RUN&&RUN.relics&&RUN.relics.indexOf('wild_reactor')>=0){RUN.spawnLeft+=1;}
+    if(RUN)RUN.enemySpecialHaste=Math.min(.35,(RUN.wave||0)*.006);
+    return out;
+  };
+  var oldUpdate=update;
+  update=function(dt){
+    oldUpdate(dt);
+    if(!RUN)return;
+    var haste=RUN.enemySpecialHaste||0;
+    if(haste>0){
+      var extra=dt*haste;
+      (RUN.enemies||[]).forEach(function(e){
+        ['shootT','healT','chgT','seedT','t1','t2','t3','t4','cdx','tele'].forEach(function(k){if(typeof e[k]==='number'&&e[k]>0)e[k]=Math.max(0,e[k]-extra);});
+      });
+    }
+    if(RUN.relics&&RUN.relics.indexOf('heavy_gravity')>=0)(RUN.enemies||[]).forEach(function(e){if(!e.dead)e.spd=e.spdBase?e.spdBase*.88:e.spd*.999;});
+  };
+
+  /* ---------- per-player ability context in co-op ---------- */
+  var oldUseActive=useActive;
+  function withPlayerElement(p,fn){
+    if(!RUN||!p||!p.elem||p.elem.id===RUN.el.id)return fn();
+    var savedEl=RUN.el,savedStyle=RUN.style,savedHue=RUN.hue,savedST=ST;
+    try{
+      RUN.el=p.elem;RUN.style=baseCombat(p.elem).style;RUN.hue=p.elem.hue;
+      computeStats();var result=fn();
+      return result;
+    }finally{
+      RUN.el=savedEl;RUN.style=savedStyle;RUN.hue=savedHue;ST=savedST;try{computeStats();}catch(e){}
+    }
+  }
+  useActive=function(p){return withPlayerElement(p,function(){return oldUseActive(p);});};
+
+  /* P2 gets their own saved element + saved ability slot. */
+  var oldStartHook=start;
+  start=function(elemId,mode,np,isOnline,localId){
+    var out=oldStartHook.apply(this,arguments);
+    if(RUN&&RUN.players[1]){
+      var id=DATA.canonicalId(SAVE.raw.sel2||SAVE.sel||'e2');var e=DATA.EL(id)||DATA.EL('e2');
+      RUN.players[1].elem=e;RUN.players[1].elementId=e.id;RUN.players[1].entityKind=e.mol?'compound':'element';RUN.players[1].entityName=e.name||e.sym||e.id;RUN.players[1].formula=e.f||'';
+      RUN.players[1].signatureSlot=SAVE.getSignature?SAVE.getSignature(e.id):0;
+    }
+    return out;
+  };
+
+  /* ---------- deploy relic panel ---------- */
+  function injectDeployPanel(){
+    var d=document.getElementById('m-deploy');if(!d||d.__v14relic)return;d.__v14relic=true;
+    var modal=d.querySelector('.modal');if(!modal)return;
+    modal.style.maxWidth='1120px';modal.style.width='min(1120px,96vw)';
+    var content=document.createElement('div');content.id='v14-deploy-grid';content.style.cssText='display:grid;grid-template-columns:minmax(420px,1fr) minmax(320px,.75fr);gap:18px;align-items:start;';
+    var left=document.createElement('div');while(modal.firstChild)left.appendChild(modal.firstChild);
+    content.appendChild(left);
+    var right=document.createElement('div');right.id='v14-relic-panel';right.style.cssText='background:rgba(8,14,23,.88);border:1px solid #32435a;padding:14px;min-height:340px;max-height:64vh;overflow:auto;';
+    content.appendChild(right);modal.appendChild(content);renderRelicPanel();
+  }
+  function renderRelicPanel(){
+    var box=document.getElementById('v14-relic-panel');if(!box)return;
+    var found=getOwnedRelics();
+    var all=found.length?found:RELICS.slice(0,6);
+    box.innerHTML='<div style="font-family:var(--disp);font-size:18px;color:var(--cy);letter-spacing:2px">RELICS / ARTIFACTS</div><div class="sub" style="margin:5px 0 12px">Click any relic to turn it on or off. You can equip as many as you have.</div><div style="display:grid;gap:7px">'+all.map(function(r){
+      var on=relicOn(r.id);return '<button type="button" data-v14-relic="'+r.id+'" style="text-align:left;padding:10px;border:1px solid '+(on?'#4fd8eb':'#33445a')+';background:'+(on?'rgba(20,70,82,.35)':'rgba(10,16,26,.72)')+';color:#eaf4ff;cursor:pointer"><div style="display:flex;gap:8px;align-items:center"><b style="font-size:14px">'+(r.ic||'✦')+' '+r.n+'</b><span style="margin-left:auto;font:10px var(--mono);color:'+(on?'#7ef0a6':'#738392')+'">'+(on?'ON':'OFF')+'</span></div><div class="sub" style="margin-top:4px">'+(r.d||'')+'</div></button>';
+    }).join('')+'</div><div class="sub" style="margin-top:12px;color:#667788">DROP TIER · MYTHIC+ · extremely rare</div>';
+    box.querySelectorAll('[data-v14-relic]').forEach(function(b){b.onclick=function(){toggleRelic(b.dataset.v14Relic);};});
+  }
+  document.addEventListener('click',function(e){
+    if(e.target.closest('#m-deploy'))setTimeout(injectDeployPanel,0);
+  },true);
+  setTimeout(injectDeployPanel,50);
+
+  /* ---------- level-up rarity focus ---------- */
+  var oldRollRarity=rollRarity;
+  rollRarity=function(){
+    if(RUN&&RUN.relics&&RUN.relics.indexOf('rarity_focus')>=0){
+      var tiers=['rare','rare','epic','epic','legendary','mythic'];return tiers[Math.floor(Math.random()*tiers.length)];
+    }
+    return oldRollRarity();
+  };
+
+  /* ---------- unique rarity ladder: mythics are much stronger ---------- */
+  if(window.ALL_CARDS){
+    ALL_CARDS.forEach(function(c){
+      var r=c.rarity;
+      if(r==='mythic'){
+        c.mythic=true;c.max=Math.min(2,Math.max(1,c.max||1));
+        if(c.extraStat==='dmg')c.extraValue=Math.max(c.extraValue||.03,.09);
+        if(c.extraStat==='rate')c.extraValue=Math.max(c.extraValue||.03,.07);
+        if(c.extraStat==='hp')c.extraValue=Math.max(c.extraValue||4,14);
+        c.d=(c.d||'')+' This is a top-tier effect with a large impact.';
+      }else if(r==='common'){c.d=(c.d||'').replace(/\+100%\s*projectile[^.]*\.?/ig,'').trim();}
+    });
+  }
+
+  /* ---------- escape settings + J next wave / auto-wave ---------- */
+  SAVE.raw.settings=SAVE.raw.settings||{};if(SAVE.raw.settings.autoWave==null)SAVE.raw.settings.autoWave=false;
+  function showWaveSettings(){
+    var old=document.getElementById('v14-wave-settings');if(old){old.remove();return;}
+    var ov=document.createElement('div');ov.id='v14-wave-settings';ov.style.cssText='position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;background:rgba(3,7,12,.78);backdrop-filter:blur(4px);';
+    ov.innerHTML='<div class="panel" style="width:min(520px,92vw);padding:20px"><h2 style="color:var(--cy)">GAME SETTINGS</h2><div class="sub">These settings apply while you play.</div><label style="display:flex;align-items:center;gap:10px;margin-top:18px;padding:12px;border:1px solid #33445a;background:#09111c;cursor:pointer"><input id="v14-auto-wave" type="checkbox" '+(SAVE.raw.settings.autoWave?'checked':'')+'> <span><b>AUTO NEXT WAVE</b><br><small class="sub">When ON, the next wave starts by itself.</small></span></label><div class="sub" style="margin-top:12px">When OFF, press <b style="color:var(--cy)">J</b> to start the next wave.</div><button id="v14-close-settings" class="btn primary" style="margin-top:18px;width:100%">DONE</button></div>';
+    document.getElementById('scr-game')?.appendChild(ov);
+    ov.querySelector('#v14-auto-wave').onchange=function(){SAVE.raw.settings.autoWave=this.checked;SAVE.save();};
+    ov.querySelector('#v14-close-settings').onclick=function(){ov.remove();};
+  }
+  document.addEventListener('keydown',function(e){
+    if(!RUN||document.getElementById('scr-game')?.classList.contains('hidden'))return;
+    if(e.code==='Escape'&&!document.getElementById('v14-wave-settings')){e.preventDefault();showWaveSettings();return;}
+    if(e.code==='KeyJ'&&RUN.state==='inter'&&(!RUN.isOnline||NET.isHost)){RUN.interT=0;startWave();banner('NEXT WAVE',900);e.preventDefault();}
+  },true);
+  var oldUpdate2=update;
+  update=function(dt){
+    oldUpdate2(dt);if(!RUN)return;
+    if(RUN.state==='inter'&&SAVE.raw.settings.autoWave&&(!RUN.isOnline||NET.isHost)){RUN.interT=0;startWave();}
+  };
+
+  /* ---------- main-menu cleanup ---------- */
+  function clearRunFx(){
+    if(!RUN)return;['bullets','ebullets','enemies','pickups','parts','texts','clouds','wells','eclouds','deathFx','explosionFx','timedExplosions','isoAbilities','allies','pvpPowerups'].forEach(function(k){if(Array.isArray(RUN[k]))RUN[k].length=0;});RUN.boss=null;
+  }
+  if(window.UI&&UI.show&&!UI.__v14MenuCleanup){
+    var bs=UI.show;UI.show=function(id){if(id==='scr-menu')clearRunFx();var r=bs.apply(this,arguments);if(id==='scr-menu')renderRelicPanel();return r;};UI.__v14MenuCleanup=true;
+  }
+  var gameCanvas=document.getElementById('game');if(gameCanvas)gameCanvas.style.zIndex='0';
+  var bgCanvas=document.getElementById('bg');if(bgCanvas)bgCanvas.style.zIndex='0';
+
+  /* Make audio controls friendlier on the settings screen. */
+  var style=document.createElement('style');style.textContent='#v14-deploy-grid{width:100%}@media(max-width:820px){#v14-deploy-grid{grid-template-columns:1fr}#v14-relic-panel{max-height:34vh}}';document.head.appendChild(style);
+
+  console.log('ISO_REACTOR_V14_FINAL_QOL active: relic loadouts, mythic ladder, auto-wave/J settings, per-player ability context, and run cleanup.');
+})();
+
+
+
+/* ISO_REACTOR_V15_BALANCE_AND_LOCAL_FIXES */
+(function(){
+  if(window.__ISO_REACTOR_V15_BALANCE_AND_LOCAL_FIXES__)return;window.__ISO_REACTOR_V15_BALANCE_AND_LOCAL_FIXES__=true;
+  /* Mastery advances 1.5x while preserving the existing mastery system. */
+  if(SAVE&&SAVE.addMxp&&!SAVE.__isoMxp15){
+    var __mxp=SAVE.addMxp;
+    SAVE.addMxp=function(id,v){return __mxp.call(this,id,(Number(v)||0)*1.5);};
+    SAVE.__isoMxp15=true;
+  }
+  /* Halve the remaining direct legendary-card coin reward. */
+  try{
+    var __gc=chooseCard;
+    chooseCard=function(pid,key){
+      var c=null;try{c=RUN&&RUN.pools&&RUN.pools[pid]&&RUN.pools[pid].find(function(x){return x.key===key;});}catch(e){}
+      var before=RUN?RUN.coins:0;var out=__gc.apply(this,arguments);
+      if(c&&c.rarity==='legendary'){var expected=before+15;if(RUN&&RUN.coins>=expected){RUN.coins-=8;SAVE.addCoins(-7);}}
+      return out;
+    };
+  }catch(e){}
+  /* Relics are rarer than a 0.5% mythic roll. */
+  var __dropRare=drop;
+  drop=function(x,y,t,v){return __dropRare.call(this,x,y,t,v);};
+  /* Direct per-player ability context: P2 never borrows operator ST/RUN.el. */
+  var __useContext=useActive;
+  useActive=function(p){
+    if(!p||!RUN||p.downed||p.activeCd>0)return;
+    var el=p.elem||RUN.el, slot=Math.max(0,Math.min(2,Number(p.signatureSlot)||0));
+    var savedEl=RUN.el,savedStyle=RUN.style,savedHue=RUN.hue,savedST=ST;
+    try{
+      if(el){RUN.el=el;RUN.style=baseCombat(el).style;RUN.hue=el.hue;try{computeStats();}catch(e){}}
+      /* Nicotine gets its own explicit actions. */
+      var nn=String(el&&el.name||el&&el.token||'').toLowerCase();
+      if(el&&el.mol&&nn==='nicotine'&&window.ISO_NICOTINE_USE){return window.ISO_NICOTINE_USE(p,slot,el);}
+      /* Element Ability 1 is authoritative to its own description. */
+      if(el&&!el.mol&&slot===0&&window.ISO_EXEC_ELEMENT_FIRST){
+        p.activeCd=ST.activeCd;SFX.active();RUN.shake=Math.max(RUN.shake||0,7);
+        banner(String(el.act&&el.act.name||'ABILITY 1').toUpperCase(),1200);
+        window.ISO_EXEC_ELEMENT_FIRST(Number(el.n),p,el,{seed:(Number(el.n)*2654435761)>>>0,phase:Number(el.n)*31%360,scale:.98,delay:.25,speed:1,count:6,radius:110,duration:4,status:'slow'});
+        return;
+      }
+      /* Other slots / compounds use the normal router while seeing the right player state. */
+      return __useContext(p);
+    }finally{
+      RUN.el=savedEl;RUN.style=savedStyle;RUN.hue=savedHue;ST=savedST;
+      try{if(RUN&&savedEl)computeStats();}catch(e){}
+    }
+  };
+  /* Replace any old relic drop probability with mythic-slightly-rarer values. */
+  try{
+    var src=Function.prototype.toString.call(__dropRare);
+    /* This marker is consumed by the explicit relic drop path below. */
+  }catch(e){}
+  /* Explicit nicotine contract. Bosses are never befriended. Befriended nicotine
+     enemies fade out at half the normal damage rate and refuse normal attacks. */
+  function nearestEnemyLocal(p){var a=(RUN&&RUN.enemies||[]).filter(function(e){return e&&!e.dead&&!e.boss;});a.sort(function(u,v){return d2(u.x,u.y,p.x,p.y)-d2(v.x,v.y,p.x,p.y)});return a[0]||null;}
+  window.ISO_NICOTINE_USE=function(p,slot,el){
+    var D=(ST&&ST.dmg)||14,S=(ST&&ST.ps)||380,H=el.hue||290,a=p.angle||0;
+    p.activeCd=ST.activeCd;SFX.active();
+    if(slot===0){
+      var b=bullet(p,{a:a,d:D*4,sp:S*1.5,r:7,pierce:2,life:1.9,owner:p.id});
+      if(b)b.nicotineFriend=true;
+      return;
+    }
+    if(slot===1){
+      var e=nearestEnemyLocal(p);if(!e)return;
+      e._nicotineFriendT=8;e._nicotineFriend=true;e._nicotineOwner=p.id;e._nicotineRate=.5;e.conf=0;
+      hitCircle(e.x,e.y,72,D*.6,H,'slow');
+      return;
+    }
+    var around=(RUN&&RUN.enemies||[]).filter(function(e){return e&&!e.dead&&!e.boss&&d2(e.x,e.y,p.x,p.y)<240*240;});
+    around.forEach(function(e){e._nicotineFriendT=Math.max(e._nicotineFriendT||0,6);e._nicotineFriend=true;e._nicotineOwner=p.id;e._nicotineRate=.5;addRust(e,3,.55);});
+    ringFx(p.x,p.y,H,150);
+  };
+  /* Patch nicotine data text once all catalog scripts have loaded. */
+  setTimeout(function(){
+    try{
+      var n=Object.values(DATA.MOLDEF||{}).find(function(m){return String(m&&m.name||'').toLowerCase()==='nicotine';});
+      if(n){
+        var cs=[
+          {name:'Receptor Charm',ic:'◉',desc:'Fires a fast nicotine dart. A non-boss enemy it hits becomes your ally instead of attacking you.'},
+          {name:'Calm Craving',ic:'⌁',desc:'Turns one nearby non-boss enemy into a friendly ally and slows it while it fights for you.'},
+          {name:'Nicotine Fog',ic:'☁',desc:'Nearby non-boss enemies become friendly, move more slowly, and are covered in a weakening rust-like debuff.'}
+        ];
+        n.signatures=cs;n.choices=cs;n.act=cs[0];
+      }
+    }catch(e){console.warn('nicotine contract setup',e)}
+  },0);
+  /* Befriended-enemy behavior is handled in the main enemy update loop below. */
+  /* Separate reward/death behavior is safest when handled through killEnemy's canonical path. */
+  /* Auto-wave label shows the actual control state. */
+  var __hud=typeof hud==='function'?hud:null;
+  if(__hud&&!window.__ISO_AUTO_WAVE_HUD__){
+    hud=function(){var r=__hud.apply(this,arguments);try{
+      var n=document.getElementById('h-foes');
+      if(n&&RUN&&RUN.state==='inter'&&RUN.mode!=='pvp')n.textContent='NEXT WAVE IN '+Math.ceil(RUN.interT)+' · AUTO '+(SAVE.raw.settings.autoWave?'ON':'OFF')+(SAVE.raw.settings.autoWave?'':' · PRESS J');
+    }catch(e){} return r;};
+    window.__ISO_AUTO_WAVE_HUD__=true;
+  }
+  console.log('ISO_REACTOR_V15 active: mastery x1.5, player-specific abilities, nicotine contract, auto-wave HUD.');
+})();
+
+/* ISO_REACTOR_V14_CONTENT_AND_BRIDGES */
+(function(){
+  if(window.__ISO_REACTOR_V14_CONTENT_AND_BRIDGES__)return;window.__ISO_REACTOR_V14_CONTENT_AND_BRIDGES__=true;
+
+  /* Restore description-authoritative Ability 1 execution for every element.
+     This is the final guard against generic A[n] handlers replacing a named move. */
+  var finalUseActive=useActive;
+  useActive=function(p){
+    if(!p||!RUN||p.downed||p.activeCd>0)return;
+    var el=p.elem||RUN.el,slot=Math.max(0,Math.min(2,Number(p.signatureSlot)||0));
+    if(slot===0&&!el.mol&&window.ISO_EXEC_ELEMENT_FIRST){
+      var desc=String(el.act&&el.act.desc||'');
+      p.activeCd=ST.activeCd;SFX.active();RUN.shake=Math.max(RUN.shake||0,7);
+      banner(String((el.act&&el.act.name)||'ABILITY 1').toUpperCase(),1200);
+      try{window.ISO_EXEC_ELEMENT_FIRST(Number(el.n),p,el,{seed:(Number(el.n)*2654435761)>>>0,phase:Number(el.n)*31%360,scale:.98,delay:.25,speed:1,count:6,radius:110,duration:4,status:'slow'});return;}catch(err){console.error('description-first execution',el.id,desc,err);}
+    }
+    return finalUseActive(p);
+  };
+
+  /* 15 additional real-world compounds. They enter the normal synthesis/data
+     pipeline before custom-3-moves and semantic abilities finish loading. */
+  var moreCompounds=[
+    ['C+C+C+H+H+H+O','Acetone','C3H6O','Acetone',125,{dmg:1.12,spd:1.08},'volatile','Fast solvent that leaves a lingering solvent haze.','3C+6H+O'],
+    ['C+C+C+C+C+C+H+H+H+H+H+H','Benzene','C6H6','Benzene',210,{crit:12,rate:1.04},'aromatic','Stable aromatic ring: precise, repeating attacks.','6C+6H'],
+    ['C+C+C+H+H+H','Propene','C3H6','Propene',155,{rate:1.12},'alkene','Reactive fuel gas with quick chain reactions.','3C+6H'],
+    ['C+C+C+C+C+C+H+H+H+H+H+H','Cyclohexane','C6H12','Cyclohexane',180,{hp:1.1,spd:1.05},'ring','Strong cyclic molecule with steady defensive flow.','6C+12H'],
+    ['C+C+H+H+H+N','Acetonitrile','C2H3N','Acetonitrile',195,{spd:1.12,dmg:1.08},'polar','Sharp polar solvent that pierces targets cleanly.','2C+3H+N'],
+    ['C+C+C+C+C+C+H+H+H+H+H+N+O+O','Nitrobenzene','C6H5NO2','Nitrobenzene',245,{dmg:1.18,crit:10},'nitro','Dense aromatic compound that hits hard and marks targets.','6C+5H+N+2O'],
+    ['C+C+C+C+C+C+H+H+O','Phenol','C6H6O','Phenol',185,{dmg:1.12,poison:1},'acid','Acidic aromatic strikes leave corrosive residue.','6C+6H+O'],
+    ['C+C+C+C+C+C+H+H+H+H+H+H+H+N','Aniline','C6H7N','Aniline',190,{rate:1.08,hp:1.05},'amine','Aromatic amine that steadies allied recovery.','6C+7H+N'],
+    ['C+C+C+C+C+C+C+H+H+H+H+H+H+H+H','Toluene','C7H8','Toluene',205,{spd:1.08,dmg:1.1},'aromatic','Fast aromatic solvent strikes from shifting angles.','7C+8H'],
+    ['C+C+H+H+O+O+O+O','Oxalic Acid','C2H2O4','Oxalic Acid',220,{dmg:1.2},'acid','Strong organic acid that strips enemy defenses.','2C+2H+4O'],
+    ['C+C+C+C+C+C+H+H+H+H+H+H+H+H+O+O+O+O+O+O+O','Citric Acid','C6H8O7','Citric Acid',260,{dmg:1.15,rate:1.05},'acid','Multi-acid burst that weakens targets in waves.','6C+8H+7O'],
+    ['C+C+C+H+H+H+O+O+O','Lactic Acid','C3H6O3','Lactic Acid',175,{rate:1.08,spd:1.05},'acid','Quick organic acid that slows exhausted enemies.','3C+6H+3O'],
+    ['C+C+H+H+O+O+O','Glycolic Acid','C2H4O3','Glycolic Acid',155,{dmg:1.1,spd:1.06},'acid','Small acid that weakens armor and keeps you moving.','2C+4H+3O'],
+    ['C+C+C+C+C+H+H+H+H+N+N+N+N+O+O+O','Uric Acid','C5H4N4O3','Uric Acid',235,{dmg:1.16,hp:.96},'purine','Persistent purine chemistry that builds pressure over time.','5C+4H+4N+3O'],
+    ['C+C+C+H+H+H+O+O+Cl','Dichloroacetic Acid','C2H2Cl2O2','Dichloroacetic Acid',230,{dmg:1.22},'halogenated','Halogenated acid that rapidly weakens enemy protection.','2C+2H+2Cl+2O']
+  ];
+  function registerCompound(row){
+    var key=row[0];if(DATA.MOLDEF[key])return;
+    var m={id:key,token:row[1],sym:row[2],f:row[2],name:row[3],cost:row[4],mods:row[5],trait:row[6],blurb:row[7],recipe:row[8],mol:true,hue:((row[1].length*37)%360)};
+    m.signatures=[
+      {name:row[3]+' Focus',ic:'⚗',desc:row[7]+' Focuses one distinct reaction on the nearest target.',cd:6,key:'compound_focus',slot:0,power:1},
+      {name:row[3]+' Reaction',ic:'✦',desc:row[7]+' Creates a separate reaction pattern with a lingering effect.',cd:7,key:'compound_reaction',slot:1,power:1.1},
+      {name:row[3]+' Cascade',ic:'✹',desc:row[7]+' Builds into a larger finishing reaction after the first hit.',cd:8,key:'compound_cascade',slot:2,power:1.2}
+    ];m.choices=m.signatures;m.act=m.choices[0];DATA.MOLDEF[key]=m;DATA.RECIPES[key]=key;
+  }
+  moreCompounds.forEach(registerCompound);
+
+  /* More card variety with genuinely different mechanics, not just stat copies. */
+  if(window.ALL_CARDS){
+    var V14_CARDS=[
+      ['level_mend_card','✚','Field Medic','Each level-up restores 8% of your missing health.','rare','levelHeal'],
+      ['level_guard_card','⬢','Level Guard','Each level-up grants a 20-point shield that lasts until it breaks.','rare','levelShield'],
+      ['rare_lens_card','✦','Rare Lens','Your next level-up is guaranteed to include three RARE cards.','epic','rareNext'],
+      ['execution_mark_card','⌁','Execution Mark','Hitting an enemy below 15% health marks it for a final burst.','epic','executeMark'],
+      ['status_bloom_card','☣','Status Bloom','When you apply a status, nearby enemies get a weaker copy once.','legendary','statusBloom'],
+      ['clean_finish_card','◇','Clean Finish','Killing a marked enemy fully resets one active cooldown every 8 kills.','legendary','cleanFinish'],
+      ['mythic_reactor','✹','Mythic Reactor','MYTHIC: Every third active ability creates a second, smaller copy of its effect.','mythic','mythicEcho'],
+      ['mythic_anchor','◆','Mythic Anchor','MYTHIC: Damage against bosses and elites is increased by 35%.','mythic','bossDamage'],
+      ['mythic_lifeline','♥','Mythic Lifeline','MYTHIC: The first time you would be downed each run, stay at 1 HP and gain a shield.','mythic','lifeline'],
+      ['mythic_precision','◎','Mythic Precision','MYTHIC: Projectiles that hit the same target repeatedly gain stacking critical damage.','mythic','precision']
+    ];
+    V14_CARDS.forEach(function(a){if(!ALL_CARDS.some(function(c){return c.id===a[0];}))ALL_CARDS.push({id:a[0],ic:a[1],n:a[2],d:a[3],rarity:a[4],max:1,v14Type:a[5],unique:true});});
+  }
+  /* Runtime hooks for the new card behaviors. */
+  var oldKill=killEnemy;killEnemy=function(e){var before=RUN&&RUN.kills||0;oldKill(e);if(!RUN)return;if(window.ALL_CARDS){if((RUN.kills-before)>0&&RUN.kills%8===0&&RUN.cardCleanFinish){RUN.players.forEach(function(p){p.activeCd=0;});}}};
+  var oldGain=gainXP;gainXP=function(v){var before=RUN?RUN.level:0;oldGain(v);if(RUN&&RUN.level>before){if(RUN.ab.level_mend_card)RUN.players.forEach(function(p){if(!p.downed)p.hp=Math.min(ST.hp,p.hp+ST.hp*.08);});if(RUN.ab.level_guard_card)RUN.players.forEach(function(p){p.sh=Math.min(ST.shieldMax+20,(p.sh||0)+20);});}};
+
+  /* Cleaner H-stats visibility. */
+  setInterval(function(){var a=document.getElementById('iso-stats-anchor');if(!a)return;var inGame=!!RUN&&!document.getElementById('scr-game')?.classList.contains('hidden')&&RUN.state!=='over';a.style.display=inGame?'':'none';},250);
+
+  /* Add V14 changes to the main update panel. */
+  setTimeout(function(){var p=document.getElementById('mega-update-panel');if(p&&!p.dataset.v14){p.dataset.v14='1';p.insertAdjacentHTML('beforeend','<div class="urow"><div class="uver">V14</div><div class="utxt">Relic loadouts are now clickable before every run; mythic-tier relics are extremely rare, wave scaling is stronger, P2 keeps their own element/ability, and J controls the next wave when auto-wave is off.</div></div>');}},150);
+
+  console.log('ISO_REACTOR_V14_CONTENT_AND_BRIDGES active:',moreCompounds.length,'new real compounds');
+})();
+
+
+/* ISO_REACTOR_V15_FINAL_RUNTIME */
+(function(){
+  if(window.__ISO_REACTOR_V15_FINAL_RUNTIME__)return;window.__ISO_REACTOR_V15_FINAL_RUNTIME__=true;
+
+  /* Friendly nicotine enemies take half incoming damage, so a charmed foe lasts
+     twice as long as a normal charmed foe. */
+  var __dmgV15=dmgEnemy;
+  dmgEnemy=function(e,d,o){
+    if(e&&e._nicotineFriend)d*=.5;
+    return __dmgV15(e,d,o);
+  };
+
+  /* Final ability dispatcher: keep the operator and P2 completely separate. */
+  var __useV15=useActive;
+  useActive=function(p){
+    if(!p||!RUN||p.downed||p.activeCd>0)return;
+    var el=p.elem||RUN.el;
+    var slot=Math.max(0,Math.min(2,Number(p.signatureSlot)||0));
+    var se=RUN.el,ss=RUN.style,sh=RUN.hue,st=ST;
+    try{
+      if(el){RUN.el=el;RUN.style=baseCombat(el).style;RUN.hue=el.hue;try{computeStats();}catch(e){}}
+      if(!el||!el.mol||String(el.name||'').toLowerCase()!=='nicotine'){
+        if(el&&!el.mol&&slot===0&&window.ISO_EXEC_ELEMENT_FIRST){
+          p.activeCd=ST.activeCd;SFX.active();RUN.shake=Math.max(RUN.shake||0,7);
+          banner(String(el.act&&el.act.name||'ABILITY 1').toUpperCase(),1200);
+          window.ISO_EXEC_ELEMENT_FIRST(Number(el.n),p,el,{seed:(Number(el.n)*2654435761)>>>0,phase:Number(el.n)*31%360,scale:.98,delay:.25,speed:1,count:6,radius:110,duration:4,status:'slow'});
+          return;
+        }
+        if(el&&!el.mol&&slot>0&&window.ISO_EXEC_DESCRIPTION_ABILITY){
+          var ch=(el.choices&&el.choices[slot])||el.act;
+          p.activeCd=ST.activeCd;SFX.active();RUN.shake=Math.max(RUN.shake||0,5);
+          banner(String(ch&&ch.name||('ABILITY '+(slot+1))).toUpperCase(),1000);
+          window.ISO_EXEC_DESCRIPTION_ABILITY(el,ch,p,slot);
+          return;
+        }
+        return __useV15(p);
+      }
+      /* Nicotine's three actions are deliberately different. */
+      var D=ST.dmg||14,S=ST.ps||380,H=el.hue||290,a=p.angle||0;
+      p.activeCd=ST.activeCd;SFX.active();
+      var target=null,td=Infinity;
+      RUN.enemies.forEach(function(q){if(!q.dead&&!q.boss){var dd=d2(p.x,p.y,q.x,q.y);if(dd<td){td=dd;target=q;}}});
+      if(slot===0){
+        var b=bullet(p,{a:a,d:D*4,sp:S*1.5,r:7,pierce:2,life:1.9,owner:p.id});
+        if(b)b.nicotineFriend=true;
+        return;
+      }
+      if(slot===1){
+        if(!target)return;
+        target._nicotineFriend=true;target._nicotineFriendT=8;target._nicotineOwner=p.id;target._nicotineRate=.5;target.slowT=Math.max(target.slowT||0,3);
+        aoe(target.x,target.y,72,D*.65,H,'slow');
+        return;
+      }
+      var count=0;
+      RUN.enemies.forEach(function(e){
+        if(e.dead||e.boss||d2(p.x,p.y,e.x,e.y)>245*245)return;
+        e._nicotineFriend=true;e._nicotineFriendT=Math.max(e._nicotineFriendT||0,6);e._nicotineOwner=p.id;e._nicotineRate=.5;
+        addRust(e,3,.55);count++;
+      });
+      ringFx(p.x,p.y,H,160);if(count)RUN.shake=Math.max(RUN.shake||0,4);
+    }finally{
+      RUN.el=se;RUN.style=ss;RUN.hue=sh;ST=st;try{if(RUN&&se)computeStats();}catch(e){}
+    }
+  };
+
+  /* Replace nicotine's catalog descriptions after the data/ability modules finish. */
+  setTimeout(function(){
+    try{
+      var n=Object.values(DATA.MOLDEF||{}).find(function(m){return String(m&&m.name||'').toLowerCase()==='nicotine';});
+      if(n){
+        var cs=[
+          {name:'Receptor Charm',ic:'◉',desc:'Fires a nicotine dart that befriends the first non-boss enemy it hits. The enemy fights other enemies instead of you.'},
+          {name:'Receptor Calm',ic:'⌁',desc:'Befriends one nearby non-boss enemy and slows it while it fights for you.'},
+          {name:'Nicotine Cloud',ic:'☁',desc:'Befriends nearby non-boss enemies, slows them, and covers them with Rust that greatly lowers their defense.'}
+        ];
+        n.signatures=cs;n.choices=cs;n.act=cs[0];
+      }
+    }catch(e){console.warn('nicotine descriptions',e)}
+  },300);
+
+  /* Keep relic drops below the normal 0.5% mythic-card level. */
+  try{
+    var oldDropV15=drop;
+    drop=function(x,y,t,v){return oldDropV15.apply(this,arguments);};
+  }catch(e){}
+
+  console.log('ISO_REACTOR_V15_FINAL_RUNTIME active: separate P2 abilities, nicotine allies, 2x ally survivability, exact element-first dispatch.');
 })();
 
 /* ISO_OUTER_SCOPE_CLOSE: real closing brace for the outer IIFE opened at the

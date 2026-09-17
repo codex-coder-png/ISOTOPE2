@@ -20,7 +20,7 @@
   const playerAt=(p,r=1e9)=>{let out=null,bd=r*r;for(const q of alive()){const d=dist2(p.x,p.y,q.x,q.y);if(d<bd){bd=d;out=q}}return out};
   const aim=(p,range=260)=>{const m=window.mouse;let x=Number.isFinite(m&&m.x)?m.x:p.x+Math.cos(p.angle||0)*range;let y=Number.isFinite(m&&m.y)?m.y:p.y+Math.sin(p.angle||0)*range;return{x:clamp(x,20,(window.W||1280)-20),y:clamp(y,20,(window.H||720)-20)}};
   const hit=(e,d,opt={})=>{if(!e||e.dead)return;if(typeof window.dmgEnemy==='function')window.dmgEnemy(e,d,opt);else{e.hp-=d;if(e.hp<=0)e.dead=true}};
-  const status=(e,k,v,dmg)=>{if(!e)return;const fx=window.ISO_STATUS_V10||{};if(k==='burn'&&window.addBurn)window.addBurn(e,dmg*.35,d||3);else if(k==='poison'&&window.addPoison)window.addPoison(e,dmg*.4,d||4);else if(k==='freeze'&&window.addFreeze)window.addFreeze(e,d||1);else if(k==='corrode'&&window.addCorrode)window.addCorrode(e,d||4,.35);else if(k==='rust'&&fx.rust)fx.rust(e,d||3.5,.72);else if(k==='shock'&&fx.shock)fx.shock(e,d||1.3);else if(k==='brittle'&&fx.brittle)fx.brittle(e,d||3);else if(k==='drenched'&&fx.drenched)fx.drenched(e,d||3);else if(k==='slow')e.slowT=Math.max(e.slowT||0,d||2);else if(k==='stun')e.stun=Math.max(e.stun||0,d||.8);else if(k==='mark')e.mark=Math.max(e.mark||0,d||5);else if(k==='conf')e.conf=Math.max(e.conf||0,d||1.5)};
+  const status=(e,k,v,dmg)=>{if(!e)return;const fx=window.ISO_STATUS_V10||{};if(k==='burn'&&window.addBurn)window.addBurn(e,dmg*.35,(v||3));else if(k==='poison'&&window.addPoison)window.addPoison(e,dmg*.4,(v||4));else if(k==='freeze'&&window.addFreeze)window.addFreeze(e,v||1);else if(k==='corrode'&&window.addCorrode)window.addCorrode(e,v||4,.35);else if(k==='rust'&&fx.rust)fx.rust(e,v||3.5,.72);else if(k==='shock'&&fx.shock)fx.shock(e,v||1.3);else if(k==='brittle'&&fx.brittle)fx.brittle(e,v||3);else if(k==='drenched'&&fx.drenched)fx.drenched(e,v||3);else if(k==='slow')e.slowT=Math.max(e.slowT||0,v||2);else if(k==='stun')e.stun=Math.max(e.stun||0,v||.8);else if(k==='mark')e.mark=Math.max(e.mark||0,v||5);else if(k==='conf')e.conf=Math.max(e.conf||0,v||1.5)};
   const hue=(entity,seed)=>{const base=Number(entity&&entity.hue);return Number.isFinite(base)?base:(seed%360)};
   const fx=(x,y,h,r=70)=>{if(window.ringFx)window.ringFx(x,y,h,r);const r0=E();if(!r0||!r0.parts)return;for(let i=0;i<Math.min(12,4+Math.floor(r/30));i++)r0.parts.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,t:.35,life:.35,hue:h,r:2});};
   const aoe=(x,y,r,d,h,st)=>{if(window.aoe)window.aoe(x,y,r,d,h||190);const rr=alive();for(const e of rr){if(dist2(x,y,e.x,e.y)<(r+e.r)*(r+e.r)){hit(e,d);status(e,st,d,d)}}fx(x,y,h||190,r)};
@@ -321,6 +321,9 @@
       m.choices=chs;m.signatures=chs;m.act=chs[0];
     }
   }
+  window.ISO_EXEC_ELEMENT_FIRST=explicitElementFirst;
+  window.ISO_EXEC_DESCRIPTION_ABILITY=function(entity,choice,player,slot){try{const st=uniqueStyle(entity,choice,Math.max(0,Number(slot)||0));if(entity&&entity.mol)return optionalImpl(player,entity,String(choice&&choice.desc||''),st);return explicitElementFirst(Number(entity&&entity.n)||0,player,entity,st);}catch(err){console.error('description ability',err);return false;}};
+
   /* Make duplicate names/descriptions impossible at runtime while preserving
      the player-facing core wording. */
   const usedN=new Map(),usedD=new Map();
