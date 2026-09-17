@@ -16,7 +16,7 @@
           <div class="brandkick">PERIODIC COMBAT PROTOCOL // REACTOR 7</div>
           <div class="brand">ISO<b>TOPE</b></div>
           <div class="brandsub">ELEMENTAL ARENA</div>
-          <div class="menu-update">BUILD 7.5 · STABILITY &amp; CO-OP INTEGRITY PASS · ELEMENTAL REACTOR OVERHAUL</div>
+          <div class="menu-update">BUILD 8.5 · STABILITY &amp; CO-OP INTEGRITY PASS · ELEMENTAL REACTOR OVERHAUL</div>
           <div id="menubtns">
             <button class="btn primary" id="btn-deploy">▸ DEPLOY<small>solo / local co-op</small></button>
             <button class="btn compact-local" id="btn-local-stream">↗ OPEN LOCAL CO-OP<small>Chromebook-ready · direct browser P2P</small></button>
@@ -28,7 +28,7 @@
             <button class="btn" data-go="scr-arch">ARCHIVE<small>records</small></button>
             <button class="btn" data-go="scr-set">SETTINGS<small>audio · fx</small></button>
           </div>
-          <div id="menufoot"><span>REACTOR ONLINE</span><span>SAVED LOCALLY</span><span>BUILD 7.5 LOCAL-COOP</span></div>
+          <div id="menufoot"><span>REACTOR ONLINE</span><span>SAVED LOCALLY</span><span>BUILD 8.5 · LOCAL CO-OP</span></div>
         </div>
         <div id="menuright">
           <div id="showcase">
@@ -257,12 +257,26 @@
         </div>
       </div>
       <div class="ov hidden" id="m-pause">
-        <div class="modal panel" style="text-align:center;max-width:460px">
-          <h2>PAUSED</h2>
-          <div class="sub mono" id="pause-info"></div>
-          <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px"><button class="btn primary"
-              id="btn-resume">RESUME</button><button class="btn" id="btn-prestart">RESTART</button><button
-              class="btn warn" id="btn-abandon">ABANDON</button></div>
+        <div class="modal panel pause-modal">
+          <div class="pause-layout">
+            <div class="pause-actions">
+              <h2>PAUSED</h2>
+              <div class="sub mono" id="pause-info"></div>
+              <div class="pause-buttons">
+                <button class="btn primary" id="btn-resume">RESUME</button>
+                <button class="btn" id="btn-prestart">RESTART</button>
+                <button class="btn warn" id="btn-abandon">ABANDON</button>
+              </div>
+            </div>
+            <aside class="pause-settings" aria-label="Game settings">
+              <h3>GAME SETTINGS</h3>
+              <div class="sub">Quick options while the game is paused.</div>
+              <label class="pause-setting-row"><span><b>AUTO NEXT WAVE</b><small>When ON, the next wave starts by itself. When OFF, press J.</small></span><input id="pause-auto-wave" type="checkbox"></label>
+              <label class="pause-setting-row range"><span><b>SFX VOLUME</b></span><input id="pause-sfx" type="range" min="0" max="100"></label>
+              <label class="pause-setting-row range"><span><b>MUSIC VOLUME</b></span><input id="pause-mus" type="range" min="0" max="100"></label>
+              <div class="pause-setting-hint">Settings save automatically.</div>
+            </aside>
+          </div>
         </div>
       </div>
       <div class="ov hidden" id="m-over">

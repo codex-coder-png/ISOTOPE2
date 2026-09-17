@@ -24,7 +24,7 @@
       id: i, name: name || ('Operator P' + (i + 1)), elementId: elId, elem: el, entityKind: el.mol ? 'compound' : 'element', entityName: el.name || el.sym || elId, formula: el.f || '',
       x: W / 2 + (i === 0 ? -120 : i === 1 ? 120 : i === 2 ? -60 : 60),
       y: H / 2 + (i >= 2 ? 100 : -50),
-      hp: 0, sh: 0, downed: false, revive: 0,
+      hp: 0, sh: 0, downed: false, revive: 0, reviveT: 0, revivingId: -1,
       dashCd: 0, dashT: 0, dvx: 0, dvy: 0, iframes: 0, fireT: 0, angle: 0, nox: 0, orbitA: 0,
       novaT: 5, flashT: 6, gravT: 8, auraT: 0, activeCd: 0,
       turretT: 4, adrenT: 0, bulwarkCd: 0, holdT: 0, staticT: 0,
@@ -923,7 +923,9 @@
           ringFx(p.x, p.y, 180, 100); banner(p.name + ' RESPAWNED', 1200);
         }
       } else {
-        p.revive = 0;
+        // Co-op revive progress is handled centrally so any living teammate
+        // can revive any downed teammate, including over the network.
+        p.revive = Math.max(0, p.revive || 0);
       }
       return;
     }
@@ -1052,17 +1054,69 @@
         RUN.enemies.forEach(e => { if (!e.dead && d2(e.x, e.y, p.x, p.y) < 95 * 95) dmgEnemy(e, ST.dmg * .25, { quiet: true }) })
       }
     }
-    if (RUN.mode === 'coop' || RUN.mode === 'net_coop') {
-      const other = RUN.players.find(q => q.id !== p.id);
-      if (other && other.downed && d2(p.x, p.y, other.x, other.y) < 70 * 70) {
-        other.revive += dt;
-        if (other.revive >= 2) {
-          other.downed = false; other.hp = ST.hp * .5; other.revive = 0; SFX.revive();
-          ringFx(other.x, other.y, 140, 100); banner(other.name + ' REVIVED', 1400)
-        }
-      }
-    }
   }
+  // ---------- CO-OP TEAM REVIVAL ----------
+  // One consistent host-authoritative revive routine is used for offline
+  // co-op and network co-op. Any living teammate may revive any downed
+  // teammate by staying close for three uninterrupted seconds.
+  function updateCoopRevives(dt) {
+    if (!RUN || (RUN.mode !== 'coop' && RUN.mode !== 'net_coop')) return;
+    const downed = RUN.players.filter(t => t.downed);
+    const claimed = new Set();
+
+    // Keep each reviver's prior target/progress so the three-second hold
+    // actually accumulates across frames instead of restarting every tick.
+    const prior = new Map(RUN.players.map(p => [p.id, { target: p.revivingId, t: p.reviveT || 0 }]));
+
+    RUN.players.forEach(reviver => {
+      const was = prior.get(reviver.id) || { target: -1, t: 0 };
+      reviver.reviveT = 0;
+      reviver.revivingId = -1;
+      if (reviver.downed) return;
+
+      let target = null, best = 84 * 84;
+      for (const candidate of downed) {
+        if (claimed.has(candidate.id) || candidate.id === reviver.id) continue;
+        const dd = d2(reviver.x, reviver.y, candidate.x, candidate.y);
+        if (dd < best) { best = dd; target = candidate; }
+      }
+      if (!target) return;
+
+      const dist = Math.sqrt(best);
+      if (dist <= 84) {
+        // Brief grace distance keeps the bar from flickering if the players
+        // move over a tiny amount of uneven input between frames.
+        const carried = was.target === target.id ? was.t : 0;
+        reviver.reviveT = Math.min(3, carried + dt);
+        reviver.revivingId = target.id;
+        target.revive = reviver.reviveT;
+        claimed.add(target.id);
+
+        if (reviver.reviveT >= 3) {
+          target.downed = false;
+          target.hp = ST.hp * .5;
+          target.sh = Math.min(ST.shieldMax, ST.shieldMax * .25);
+          target.revive = 0;
+          target.iframes = 2;
+          reviver.reviveT = 0;
+          reviver.revivingId = -1;
+          if (!RUN.isOnline || NET.isHost) {
+            ringFx(target.x, target.y, 140, 100);
+            burst(target.x, target.y, 150);
+            banner(target.name + ' REVIVED', 1400);
+            SFX.revive();
+          }
+        }
+      } else {
+        target.revive = 0;
+      }
+    });
+
+    downed.forEach(target => {
+      if (!claimed.has(target.id)) target.revive = 0;
+    });
+  }
+
   function applyTraitHit(b, e) {
     const tr = ST.trait;
     if (ST.aoeLv > 0) aoe(b.x, b.y, 40 + 14 * ST.aoeLv, ST.dmg * (.4 + .2 * ST.aoeLv), RUN.hue);
@@ -1416,6 +1470,9 @@
         hp: p.hp,
         sh: p.sh,
         downed: p.downed,
+        revive: p.revive || 0,
+        reviveT: p.reviveT || 0,
+        revivingId: p.revivingId == null ? -1 : p.revivingId,
         angle: p.angle,
         kills: p.kills,
         deaths: p.deaths,
@@ -1578,6 +1635,7 @@
     if (RUN.pullT > 0) RUN.pullT -= dt;
 
     RUN.players.forEach(p => updPlayer(p, wdt));
+    updateCoopRevives(wdt);
 
     if (RUN.mode === 'pvp' || RUN.mode === 'net_pvp') {
       // PvP player bullet collisions
@@ -1655,6 +1713,7 @@
     if (RUN.isOnline && !NET.isHost) { NET.sendClientAction('togglePause'); return; }
     RUN.state = 'pause';
     document.getElementById('pause-info').textContent = `WAVE ${RUN.wave} · LV ${RUN.level} · ◈ ${RUN.coins}`;
+    if(window.__ISO_PAUSE_SYNC__)window.__ISO_PAUSE_SYNC__();
     document.getElementById('m-pause').classList.remove('hidden');
     broadcastGameState(true);
   }
@@ -1797,8 +1856,23 @@
       cx.fillText(p.name, p.x, p.y - 24);
 
       if (p.downed) {
-        cx.globalAlpha = 1; cx.strokeStyle = '#7ef0a6'; cx.lineWidth = 3;
-        cx.beginPath(); cx.arc(p.x, p.y, 26, -Math.PI / 2, -Math.PI / 2 + (p.revive / 2) * TAU); cx.stroke()
+        cx.globalAlpha = 1;
+        cx.strokeStyle = '#7ef0a6'; cx.lineWidth = 3;
+        cx.beginPath(); cx.arc(p.x, p.y, 26, -Math.PI / 2, -Math.PI / 2 + (p.revive / 3) * TAU); cx.stroke();
+        if (p.revive > 0) {
+          cx.fillStyle = '#dfffe8'; cx.font = 'bold 9px "Share Tech Mono"'; cx.textAlign = 'center';
+          cx.fillText('REVIVING', p.x, p.y + 40);
+        }
+      }
+      if (!p.downed && p.revivingId >= 0 && p.reviveT > 0) {
+        const pct = clamp(p.reviveT / 3, 0, 1);
+        const bw = 58, bh = 6, bx = p.x - bw / 2, by = p.y - 40;
+        cx.globalAlpha = 1;
+        cx.fillStyle = 'rgba(4,10,16,.9)'; cx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+        cx.strokeStyle = '#7ef0a6'; cx.lineWidth = 1; cx.strokeRect(bx - 2, by - 2, bw + 4, bh + 4);
+        cx.fillStyle = '#7ef0a6'; cx.fillRect(bx, by, bw * pct, bh);
+        cx.fillStyle = '#dfffe8'; cx.font = 'bold 9px "Share Tech Mono"'; cx.textAlign = 'center';
+        cx.fillText('REVIVE ' + Math.ceil(p.reviveT) + 's', p.x, by - 5);
       }
       cx.globalAlpha = 1;
       const oc = (RUN.ab.orbit || 0) * 2;
@@ -2016,7 +2090,7 @@
             setTimeout(() => document.getElementById('hitflash').style.opacity = 0, 120);
             RUN.shake = Math.max(RUN.shake, 6); SFX.hurt();
           }
-          p.hp = sp.hp; p.sh = sp.sh; p.downed = sp.downed; p.angle = sp.angle;
+          p.hp = sp.hp; p.sh = sp.sh; p.downed = sp.downed; p.revive = sp.revive || 0; p.reviveT = sp.reviveT || 0; p.revivingId = Number.isFinite(sp.revivingId) ? sp.revivingId : -1; p.angle = sp.angle;
           p.signatureSlot=sp.signatureSlot||0; p.kills=sp.kills; p.deaths=sp.deaths; p.respawnTimer = sp.respawnTimer;
           p.dashCd=sp.dashCd||0;p.activeCd=sp.activeCd||0;p.iframes=sp.iframes||0;p.puDamage=sp.puDamage||1;p.puSpeed=sp.puSpeed||1;p.puRate=sp.puRate||1;p.puName=sp.puName||'';
         });
@@ -3200,7 +3274,7 @@ case 'voidsentry':e._vT2=(e._vT2||5)-dt;if(e._vT2<=0){e._vT2=5;RUN.eclouds.push(
 case 'stormbeacon':e._stT=(e._stT||5.5)-dt;if(e._stT<=0){e._stT=5.5;var sp=RUN.players.filter(function(p){return !p.downed;})[0];if(sp){sp._stormX=sp.x;sp._stormY=sp.y;ringFx(sp.x,sp.y,e.hue,60);setTimeout(function(){if(RUN)aoe(sp._stormX,sp._stormY,70,e.dmg*1.8,e.hue);},1100);}}break;
 case 'nullmimic':e._nT=(e._nT||6)-dt;if(e._nT<=0){e._nT=6;RUN.players.forEach(function(p){p.nullAimT=.9;});ringFx(e.x,e.y,e.hue,100);}break;
 case 'crystalwarden':if(e.hp<e.maxhp*.65&&!e._cr){e._cr=1;for(var cc=0;cc<3;cc++)spawnEnemy('shielder',e.x+rnd(-50,50),e.y+rnd(-50,50));ringFx(e.x,e.y,e.hue,130);}break;
-case 'plasmacrusher':e._pcT=(e._pcT||4.5)-dt;if(e._pcT<=0&&d<330){e._pcT=4.5;e.plasmaCharge=.75;ringFx(e.x,e.y,e.hue,90);}if(e.plasmaCharge>0){e.plasmaCharge-=dt;if(e.plasmaCharge<=0)aoe(e.x,e.y,100,e.dmg*1.6,e.hue);}break;
+case 'plasmacrusher':e._pcT=(e._pcT||4.5)-dt;if(e._pcT<=0&&d2(e.x,e.y,tp.x,tp.y)<330*330){e._pcT=4.5;e.plasmaCharge=.75;ringFx(e.x,e.y,e.hue,90);}if(e.plasmaCharge>0){e.plasmaCharge-=dt;if(e.plasmaCharge<=0)aoe(e.x,e.y,100,e.dmg*1.6,e.hue);}break;
 case 'corroswirl':e._coT=(e._coT||4)-dt;if(e._coT<=0){e._coT=4;RUN.players.forEach(function(p){if(!p.downed&&d2(p.x,p.y,e.x,e.y)<130*130)p.sh=Math.max(0,(p.sh||0)-18);});ringFx(e.x,e.y,e.hue,120);}break;
 case 'gravityblink':e._gbT=(e._gbT||5)-dt;if(e._gbT<=0){e._gbT=5;e.x=clamp(tp.x+rnd(-200,200),24,W-24);e.y=clamp(tp.y+rnd(-200,200),24,H-24);RUN.wells.push({x:e.x,y:e.y,t:2.3,lv:3});ringFx(e.x,e.y,e.hue,110);}break;
 
@@ -5553,8 +5627,9 @@ console.log('ISO_UPDATE2_GAME active.');
     }).join('')+'</div><div class="sub" style="margin-top:12px;color:#667788">DROP TIER · MYTHIC+ · extremely rare</div>';
     box.querySelectorAll('[data-v14-relic]').forEach(function(b){b.onclick=function(){toggleRelic(b.dataset.v14Relic);};});
   }
+  window.ISO_REFRESH_RELIC_PANEL=function(){try{renderRelicPanel();}catch(e){console.warn('relic panel refresh',e);}};
   document.addEventListener('click',function(e){
-    if(e.target.closest('#m-deploy'))setTimeout(injectDeployPanel,0);
+    if(e.target.closest('#m-deploy'))setTimeout(function(){injectDeployPanel();renderRelicPanel();},0);
   },true);
   setTimeout(injectDeployPanel,50);
 
@@ -5581,19 +5656,10 @@ console.log('ISO_UPDATE2_GAME active.');
     });
   }
 
-  /* ---------- escape settings + J next wave / auto-wave ---------- */
+  /* ---------- pause settings are embedded beside the pause controls ---------- */
   SAVE.raw.settings=SAVE.raw.settings||{};if(SAVE.raw.settings.autoWave==null)SAVE.raw.settings.autoWave=false;
-  function showWaveSettings(){
-    var old=document.getElementById('v14-wave-settings');if(old){old.remove();return;}
-    var ov=document.createElement('div');ov.id='v14-wave-settings';ov.style.cssText='position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;background:rgba(3,7,12,.78);backdrop-filter:blur(4px);';
-    ov.innerHTML='<div class="panel" style="width:min(520px,92vw);padding:20px"><h2 style="color:var(--cy)">GAME SETTINGS</h2><div class="sub">These settings apply while you play.</div><label style="display:flex;align-items:center;gap:10px;margin-top:18px;padding:12px;border:1px solid #33445a;background:#09111c;cursor:pointer"><input id="v14-auto-wave" type="checkbox" '+(SAVE.raw.settings.autoWave?'checked':'')+'> <span><b>AUTO NEXT WAVE</b><br><small class="sub">When ON, the next wave starts by itself.</small></span></label><div class="sub" style="margin-top:12px">When OFF, press <b style="color:var(--cy)">J</b> to start the next wave.</div><button id="v14-close-settings" class="btn primary" style="margin-top:18px;width:100%">DONE</button></div>';
-    document.getElementById('scr-game')?.appendChild(ov);
-    ov.querySelector('#v14-auto-wave').onchange=function(){SAVE.raw.settings.autoWave=this.checked;SAVE.save();};
-    ov.querySelector('#v14-close-settings').onclick=function(){ov.remove();};
-  }
   document.addEventListener('keydown',function(e){
     if(!RUN||document.getElementById('scr-game')?.classList.contains('hidden'))return;
-    if(e.code==='Escape'&&!document.getElementById('v14-wave-settings')){e.preventDefault();showWaveSettings();return;}
     if(e.code==='KeyJ'&&RUN.state==='inter'&&(!RUN.isOnline||NET.isHost)){RUN.interT=0;startWave();banner('NEXT WAVE',900);e.preventDefault();}
   },true);
   var oldUpdate2=update;
@@ -5679,8 +5745,8 @@ console.log('ISO_UPDATE2_GAME active.');
     var D=(ST&&ST.dmg)||14,S=(ST&&ST.ps)||380,H=el.hue||290,a=p.angle||0;
     p.activeCd=ST.activeCd;SFX.active();
     if(slot===0){
-      var b=bullet(p,{a:a,d:D*4,sp:S*1.5,r:7,pierce:2,life:1.9,owner:p.id});
-      if(b)b.nicotineFriend=true;
+      var b={x:p.x,y:p.y,vx:Math.cos(a)*S*1.5,vy:Math.sin(a)*S*1.5,dmg:D*4,r:7,pierce:2,life:1.9,owner:p.id,hit:[],semanticType:'nicotine-dart',nicotineFriend:true};
+      RUN.bullets.push(b);
       return;
     }
     if(slot===1){
@@ -5795,8 +5861,11 @@ console.log('ISO_UPDATE2_GAME active.');
 
   /* Add V14 changes to the main update panel. */
   setTimeout(function(){var p=document.getElementById('mega-update-panel');if(p&&!p.dataset.v14){p.dataset.v14='1';p.insertAdjacentHTML('beforeend','<div class="urow"><div class="uver">V14</div><div class="utxt">Relic loadouts are now clickable before every run; mythic-tier relics are extremely rare, wave scaling is stronger, P2 keeps their own element/ability, and J controls the next wave when auto-wave is off.</div></div>');}},150);
+  /* Add the 8.5 multiplayer/reliability release notes. */
+  setTimeout(function(){var p=document.getElementById('mega-update-panel');if(p&&!p.dataset.v85){p.dataset.v85='1';p.insertAdjacentHTML('beforeend','<div class="urow"><div class="uver">8.5 · CO-OP</div><div class="utxt">Any living teammate can stand beside a downed teammate for 3 seconds to revive them. The revive can be done in either direction, shows a small progress bar above the reviving player, resets when the teammate moves away, and stays synchronized by the host in network co-op.</div></div><div class="urow"><div class="uver">8.5 · MULTIPLAYER</div><div class="utxt">Player-specific revive progress and teammate state are now included in multiplayer snapshots so each player sees the same downed/reviving state. P1 and P2 remain independent while shared co-op actions stay synchronized.</div></div><div class="urow"><div class="uver">8.5 · QOL</div><div class="utxt">Cleaner teammate feedback, safer round-state recovery, expanded co-op status information, and the previous ability, combat FX, relic, status, pickup, wave-scaling, local-multiplayer, card, enemy, boss, augmentation, and artifact improvements remain part of the 8.5 build.</div></div>');}},250);
 
-  console.log('ISO_REACTOR_V14_CONTENT_AND_BRIDGES active:',moreCompounds.length,'new real compounds');
+  console.log('ISO_REACTOR_V8_5_COOP active: teammate revival + multiplayer state sync');
+  setTimeout(function(){var p=document.getElementById('mega-update-panel');if(p&&!p.dataset.v19fix){p.dataset.v19fix='1';p.insertAdjacentHTML('beforeend','<div class="urow"><div class="uver">8.5 · FIX</div><div class="utxt">Pause settings now stay beside the pause buttons, the update log scrolls as one complete panel, relics refresh every time Deploy opens, and two runtime errors that could crash a run were removed.</div></div>');}},450);
 })();
 
 
@@ -5843,8 +5912,8 @@ console.log('ISO_UPDATE2_GAME active.');
       var target=null,td=Infinity;
       RUN.enemies.forEach(function(q){if(!q.dead&&!q.boss){var dd=d2(p.x,p.y,q.x,q.y);if(dd<td){td=dd;target=q;}}});
       if(slot===0){
-        var b=bullet(p,{a:a,d:D*4,sp:S*1.5,r:7,pierce:2,life:1.9,owner:p.id});
-        if(b)b.nicotineFriend=true;
+        var b={x:p.x,y:p.y,vx:Math.cos(a)*S*1.5,vy:Math.sin(a)*S*1.5,dmg:D*4,r:7,pierce:2,life:1.9,owner:p.id,hit:[],semanticType:'nicotine-dart',nicotineFriend:true};
+        RUN.bullets.push(b);
         return;
       }
       if(slot===1){

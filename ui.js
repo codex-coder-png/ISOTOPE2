@@ -513,6 +513,7 @@
   let mode = 'solo';
   $('#btn-deploy').onclick = () => {
     SFX.click();
+    if (window.ISO_REFRESH_RELIC_PANEL) window.ISO_REFRESH_RELIC_PANEL();
     show('scr-game');
     $('#dep-elem').textContent = 'Selected: ' + EL(SAVE.sel).name;
     $('#coop-hints').classList.toggle('hidden', true);
@@ -526,7 +527,7 @@
   });
   $('#dep-cancel').onclick = () => { SFX.click(); $('#m-deploy').classList.add('hidden'); show('scr-menu') };
   $('#dep-go').onclick = () => {
-    SFX.click(); $('#m-deploy').classList.add('hidden');
+    SFX.click(); if (window.ISO_REFRESH_RELIC_PANEL) window.ISO_REFRESH_RELIC_PANEL(); $('#m-deploy').classList.add('hidden');
     if (!SAVE.set.brief) {
       SAVE.set.brief = 1; SAVE.save();
       $('#brief-rows').innerHTML = `
@@ -541,6 +542,23 @@
     else { $('#scr-game').classList.remove('hidden'); GAME.start(SAVE.sel, mode) }
   };
   $('#btn-briefok').onclick = () => { SFX.click(); $('#m-brief').classList.add('hidden'); GAME.start(SAVE.sel, mode) };
+  function syncPauseSettings(){
+    const s=SAVE.raw.settings=SAVE.raw.settings||{};
+    const aw=document.getElementById('pause-auto-wave'),ps=document.getElementById('pause-sfx'),pm=document.getElementById('pause-mus');
+    if(aw) aw.checked=!!s.autoWave;
+    if(ps) ps.value=SAVE.set.sfx;
+    if(pm) pm.value=SAVE.set.mus;
+  }
+  function bindPauseSettings(){
+    const aw=document.getElementById('pause-auto-wave'),ps=document.getElementById('pause-sfx'),pm=document.getElementById('pause-mus');
+    if(aw) aw.onchange=()=>{SAVE.raw.settings=SAVE.raw.settings||{};SAVE.raw.settings.autoWave=aw.checked;SAVE.save();SFX.click();};
+    if(ps) ps.oninput=()=>{SAVE.set.sfx=+ps.value;AUDIO.applyVol();SAVE.save();};
+    if(pm) pm.oninput=()=>{SAVE.set.mus=+pm.value;AUDIO.applyVol();SAVE.save();};
+  }
+  bindPauseSettings();
+  syncPauseSettings();
+  const __pauseShow=window.__ISO_PAUSE_SYNC__;
+  window.__ISO_PAUSE_SYNC__=()=>syncPauseSettings();
   $('#btn-resume').onclick = () => { SFX.click(); GAME.resume() };
   $('#btn-prestart').onclick = () => { SFX.click(); $('#bosswrap').classList.add('hidden'); GAME.start(SAVE.sel, mode) };
   function leaveMatch() {

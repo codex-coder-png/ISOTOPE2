@@ -1,0 +1,12 @@
+ISOTOPE V19 — STABILITY / UPDATE LOG / PAUSE UI FIX
+
+Fixed:
+- Runtime crash: the Plasma Crusher AI referenced an undefined distance variable.
+- Runtime crash: Nicotine ability code called a bullet helper outside its scope; it now creates its projectile directly and safely.
+- Deploy now refreshes the collected relic/artifact list every time the deploy screen is opened and again before engagement.
+- Escape no longer opens a separate blocking settings overlay.
+- Pause now shows Game Settings directly beside RESUME / RESTART / ABANDON.
+- Pause settings include Auto Next Wave, SFX Volume, and Music Volume and save immediately.
+- The main update log is now one fixed-height scrolling panel. The entire panel owns the scrollbar, including dynamically added update rows, so new changelog entries cannot stretch the page or create a nested-scroll bug.
+
+The previous game systems and content remain intact. Only isotope-fixed was changed.

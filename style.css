@@ -278,3 +278,21 @@ input[type=range]{width:200px;accent-color:var(--cy)}
 @media(max-width:900px){#vault-body{flex-direction:column}#vd{width:100%}#lab-body{grid-template-columns:1fr;overflow:auto}.labcol{min-height:260px}}
 
 .compact-local{min-height:44px;margin-top:4px;opacity:.88}.compact-local small{font-size:9px;opacity:.7}.compact-local:hover{opacity:1}
+
+/* V19 pause/settings layout: settings live beside the pause controls and never open as a separate Escape modal. */
+.pause-modal{width:min(920px,94vw);max-width:920px!important;text-align:left!important}
+.pause-layout{display:grid;grid-template-columns:minmax(250px,.85fr) minmax(300px,1.15fr);gap:16px;align-items:stretch}
+.pause-actions{padding:4px 6px 8px;text-align:center}
+.pause-buttons{display:grid;gap:10px;margin-top:20px}
+.pause-settings{padding:15px;border:1px solid var(--line2);background:linear-gradient(145deg,rgba(14,28,42,.92),rgba(7,13,21,.95));min-width:0}
+.pause-settings h3{color:var(--cy);letter-spacing:.16em;margin:0 0 4px;font-family:var(--disp);font-size:15px}
+.pause-setting-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer}
+.pause-setting-row:last-of-type{border-bottom:0}
+.pause-setting-row span{display:grid;gap:4px;min-width:0}
+.pause-setting-row b{font-family:var(--disp);font-size:12px;letter-spacing:.08em;color:var(--tx)}
+.pause-setting-row small{font-size:10px;line-height:1.35;color:var(--tx2)}
+.pause-setting-row input[type=checkbox]{width:18px;height:18px;accent-color:#4fd8eb;flex:0 0 auto}
+.pause-setting-row.range{display:grid;grid-template-columns:1fr minmax(110px,1fr);align-items:center}
+.pause-setting-row input[type=range]{width:100%}
+.pause-setting-hint{margin-top:10px;font:9px var(--mono);letter-spacing:.08em;color:var(--tx3)}
+@media(max-width:720px){.pause-layout{grid-template-columns:1fr}.pause-settings{order:2}.pause-actions{order:1}.pause-modal{max-height:88vh;overflow:auto}}

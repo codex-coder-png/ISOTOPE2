@@ -1,4 +1,4 @@
-/* ISOTOPE BUILD 7.5 — MEGA QOL / CONTENT / CO-OP OVERHAUL
+/* ISOTOPE BUILD 8.5 — MEGA QOL / CONTENT / CO-OP OVERHAUL
    Loaded last. All modifications target the fixed build only. */
 (function(){
   'use strict';
@@ -20,9 +20,21 @@
     #m-head .equipped-box{margin-top:10px;padding:10px 12px;border:1px solid var(--line2);background:linear-gradient(145deg,rgba(20,39,57,.8),rgba(8,14,23,.95));border-left:3px solid hsl(var(--eh) 90% 65%)}
     #m-head .equipped-box b{color:hsl(var(--eh) 95% 75%)}
     #ability-mastery{border-color:var(--eh)!important;background:linear-gradient(145deg,hsla(var(--eh),70%,55%,.12),#0b1220 70%)!important}
-    #mega-update-panel{grid-column:1/-1!important;width:100%;box-sizing:border-box;margin-top:18px;border:1px solid rgba(116,234,255,.28);background:linear-gradient(145deg,rgba(11,24,34,.95),rgba(8,13,21,.96));padding:13px 15px;max-width:920px}
-    #mega-update-panel .urow{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:7px 0;border-top:1px solid rgba(255,255,255,.06)}
-    #mega-update-panel .urow:first-child{border-top:0} #mega-update-panel .uver{color:var(--cy);font-family:var(--mono);font-size:11px} #mega-update-panel .utxt{color:var(--tx2);font-size:12px}
+    #mega-update-panel{grid-column:1/-1!important;width:100%;box-sizing:border-box;margin-top:18px;border:1px solid rgba(116,234,255,.28);background:linear-gradient(145deg,rgba(11,24,34,.95),rgba(8,13,21,.96));padding:0;max-width:920px;height:min(390px,48vh);min-height:260px;display:block;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(116,234,255,.45) rgba(8,13,21,.65)}
+    #mega-update-panel .mega-update-head{padding:13px 15px;border-bottom:1px solid rgba(116,234,255,.16);background:linear-gradient(180deg,rgba(16,34,48,.72),rgba(8,16,25,.52));position:sticky;top:0;z-index:2}
+    #mega-update-panel .mega-update-scroll{min-height:0;overflow:visible;padding:0 15px 10px}
+    #mega-update-panel::-webkit-scrollbar{width:8px}
+    #mega-update-panel::-webkit-scrollbar-track{background:rgba(8,13,21,.65)}
+    #mega-update-panel::-webkit-scrollbar-thumb{background:rgba(116,234,255,.35);border-radius:8px;border:2px solid rgba(8,13,21,.65)}
+    #mega-update-panel::-webkit-scrollbar-thumb:hover{background:rgba(116,234,255,.58)}
+    #mega-update-panel .mega-update-scroll::-webkit-scrollbar{width:8px}
+    #mega-update-panel .mega-update-scroll::-webkit-scrollbar-track{background:rgba(8,13,21,.65)}
+    #mega-update-panel .mega-update-scroll::-webkit-scrollbar-thumb{background:rgba(116,234,255,.35);border-radius:8px;border:2px solid rgba(8,13,21,.65)}
+    #mega-update-panel .mega-update-scroll::-webkit-scrollbar-thumb:hover{background:rgba(116,234,255,.58)}
+    #mega-update-panel .urow{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,.06)}
+    #mega-update-panel .urow:first-child{border-top:0} #mega-update-panel .uver{color:var(--cy);font-family:var(--mono);font-size:11px} #mega-update-panel .utxt{color:var(--tx2);font-size:12px;line-height:1.4}
+    @media(max-width:900px){#mega-update-panel{height:min(340px,50vh);min-height:230px}.mega-update-head b{font-size:14px!important}.mega-update-scroll .urow{grid-template-columns:82px 1fr;gap:9px}}
+    @media(max-width:640px){#mega-update-panel{height:min(300px,52vh);min-height:210px}.mega-update-scroll .urow{grid-template-columns:1fr;gap:4px}.mega-update-scroll .uver{font-size:10px}}
     #mega-codex{margin-top:16px;padding:12px;border:1px solid var(--line);background:#0a111c}
     #mega-hud-ability{position:fixed;left:14px;bottom:86px;z-index:44;min-width:250px;max-width:320px;padding:9px 12px;border:1px solid rgba(116,234,255,.28);background:rgba(6,12,19,.88);font-family:var(--mono);box-shadow:0 8px 26px rgba(0,0,0,.3)}
     #mega-hud-ability .nm{color:#e9f8ff;font-family:var(--disp);font-size:12px;letter-spacing:.08em} #mega-hud-ability .ds{color:var(--tx2);font-size:10px;line-height:1.35;margin-top:3px}
@@ -216,7 +228,7 @@
   function renderUpdatePanel(){
     const host=$('#menuright')||$('#scr-menu'); if(!host||document.getElementById('mega-update-panel'))return;
     const d=document.createElement('div');d.id='mega-update-panel';
-    d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-family:var(--disp);font-size:16px;color:var(--cy);letter-spacing:.12em">UPDATE 7.5 · STABILITY &amp; CO-OP INTEGRITY PASS</b><span class="tag">LIVE BUILD</span></div>
+    d.innerHTML=`<div class="mega-update-head"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><b style="font-family:var(--disp);font-size:16px;color:var(--cy);letter-spacing:.12em">UPDATE 8.5 · STABILITY &amp; CO-OP INTEGRITY PASS</b><span class="tag">LIVE BUILD</span></div></div><div class="mega-update-scroll">
       <div class="urow"><div class="uver">7.5 · CRITICAL FIX</div><div class="utxt">Found and fixed a root-cause bug where the game's actual "start run" entry point was permanently bound to an old, pre-patch version of the start function. This silently prevented several already-written fixes from ever running in a real game session: P2 was always given P1's element/ability instead of their own saved selection, equipped relics never actually applied to the run, and ally state wasn't cleared between runs. All three now work correctly because the underlying cause is fixed, not just the symptom.</div></div>
       <div class="urow"><div class="uver">7.5 · ABILITY NAMES</div><div class="utxt">Removed a leftover block that was overwriting every element's Ability 2 and Ability 3 display names with one of only 11 shared category names (so many unrelated elements showed the exact same move name). Each element now keeps the name that was already being generated uniquely for it, so displayed names no longer collide across elements.</div></div>
       <div class="urow"><div class="uver">7.5 · CO-OP</div><div class="utxt">Player 2's on-map icon and label now correctly reflect Player 2's own selected element instead of mirroring Player 1's.</div></div>
@@ -225,7 +237,7 @@
       <div class="urow"><div class="uver">CO-OP</div><div class="utxt">Offline tab rooms use BroadcastChannel room codes first, so two tabs opened from the same local file can join the same room; hosted builds may additionally use PeerJS. Player element + signature loadouts stay per-player while run rewards remain shared where appropriate.</div></div>
       <div class="urow"><div class="uver">COMBAT</div><div class="utxt">New attack protocols, pickup effects, boss patterns, status interactions, audiovisual reactions, 20 new enemy archetypes, and 12 more bosses.</div></div>
       <div class="urow"><div class="uver">CONTENT</div><div class="utxt">+240 unique cards, 18 relics, expanded enemy codex, more augment/research hooks, extra pickup families, and a larger live-run HUD.</div></div>
-      <div id="mega-content-counter">BUILD COUNTS: 118 ELEMENTS · ${Object.keys(DATA.MOLDEF||{}).filter(k=>DATA.MOLDEF[k]?.mol).length} COMPOUNDS · ${window.ALL_CARDS?.length||0} CARDS · ${Object.keys(DATA.ETYPES||{}).length} ENEMY ARCHETYPES · ${DATA.BOSSDEFS?.length||0} BOSSES</div>`;
+      <div id="mega-content-counter">BUILD COUNTS: 118 ELEMENTS · ${Object.keys(DATA.MOLDEF||{}).filter(k=>DATA.MOLDEF[k]?.mol).length} COMPOUNDS · ${window.ALL_CARDS?.length||0} CARDS · ${Object.keys(DATA.ETYPES||{}).length} ENEMY ARCHETYPES · ${DATA.BOSSDEFS?.length||0} BOSSES</div></div>`;
     host.appendChild(d);
   }
 
@@ -384,5 +396,5 @@
 
   renderUpdatePanel(); refreshVault();
   setInterval(()=>{refreshVault();if(!$('#scr-mastery')?.classList.contains('hidden'))renderMastery();},1600);
-  console.log('ISOTOPE BUILD 7.5 MEGA OVERHAUL ACTIVE');
+  console.log('ISOTOPE BUILD 8.5 MEGA OVERHAUL ACTIVE');
 })();
